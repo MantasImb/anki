@@ -1,0 +1,208 @@
+{
+  "id": "3efc0a2b-1e1e-4f02-8984-55e080236a47",
+  "prevId": "f0c54941-8899-493b-a0a0-17181f38d47a",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.card_drafts": {
+      "name": "card_drafts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "source_text_id": {
+          "name": "source_text_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "front": {
+          "name": "front",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "back": {
+          "name": "back",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "review_status": {
+          "name": "review_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "card_drafts_source_text_id_source_texts_id_fk": {
+          "name": "card_drafts_source_text_id_source_texts_id_fk",
+          "tableFrom": "card_drafts",
+          "tableTo": "source_texts",
+          "columnsFrom": [
+            "source_text_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "card_drafts_front_not_blank": {
+          "name": "card_drafts_front_not_blank",
+          "value": "length(regexp_replace(\"card_drafts\".\"front\", '[[:space:]]', '', 'g')) > 0"
+        },
+        "card_drafts_back_not_blank": {
+          "name": "card_drafts_back_not_blank",
+          "value": "length(regexp_replace(\"card_drafts\".\"back\", '[[:space:]]', '', 'g')) > 0"
+        },
+        "card_drafts_review_status_valid": {
+          "name": "card_drafts_review_status_valid",
+          "value": "\"card_drafts\".\"review_status\" in ('pending', 'approved', 'rejected')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.flashcards": {
+      "name": "flashcards",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "front": {
+          "name": "front",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "back": {
+          "name": "back",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recall_streak": {
+          "name": "recall_streak",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "flashcards_front_not_blank": {
+          "name": "flashcards_front_not_blank",
+          "value": "length(regexp_replace(\"flashcards\".\"front\", '[[:space:]]', '', 'g')) > 0"
+        },
+        "flashcards_back_not_blank": {
+          "name": "flashcards_back_not_blank",
+          "value": "length(regexp_replace(\"flashcards\".\"back\", '[[:space:]]', '', 'g')) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.source_texts": {
+      "name": "source_texts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "generation_status": {
+          "name": "generation_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ready'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "source_texts_content_not_blank": {
+          "name": "source_texts_content_not_blank",
+          "value": "length(regexp_replace(\"source_texts\".\"content\", '[[:space:]]', '', 'g')) > 0"
+        },
+        "source_texts_generation_status_valid": {
+          "name": "source_texts_generation_status_valid",
+          "value": "\"source_texts\".\"generation_status\" in ('ready', 'completed', 'failed')"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
