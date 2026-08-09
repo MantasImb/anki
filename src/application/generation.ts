@@ -22,6 +22,7 @@ export type CardDraft = GeneratedCardDraft & {
   id: string;
   sourceTextId: string;
   reviewStatus: "pending" | "approved" | "rejected";
+  approvedFlashcardId?: string | null;
 };
 
 export type SourceWithDrafts = SourceText & { drafts: CardDraft[] };

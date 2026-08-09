@@ -75,8 +75,10 @@ The main workflows are:
 - `/generate` — paste Norwegian Source Text and generate pending Card Drafts.
 - `/settings/generation` — edit or restore the persistent Generation
   Instructions used by future attempts.
-- `/sources/{id}/drafts` — review completed drafts or retry a failed attempt
-  without pasting the Source Text again.
+- `/sources/{id}/drafts` — edit or remove completed drafts, then add every
+  remaining draft to the collection with one button. Added drafts become
+  studyable Flashcards and retain their Source Text relationship. A failed
+  attempt can also be retried without pasting the Source Text again.
 
 ## Deployment environment
 

@@ -2,7 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSourceWithDrafts } from "@/composition/generation";
 import { DraftReview } from "./draft-review";
-import { retryCardDraftGeneration } from "./actions";
+import {
+  addRemainingCardDrafts,
+  retryCardDraftGeneration,
+  reviewCardDraft,
+} from "./actions";
 import { RetryGeneration } from "./retry-generation";
 
 export default async function SourceDraftsPage({
@@ -64,7 +68,11 @@ export default async function SourceDraftsPage({
       <p className="mt-3 max-w-2xl leading-7 text-slate-600">
         Your complete generated collection is saved and ready for review.
       </p>
-      <DraftReview source={source} />
+      <DraftReview
+        action={reviewCardDraft.bind(null, source.id)}
+        addAction={addRemainingCardDrafts.bind(null, source.id)}
+        source={source}
+      />
     </main>
   );
 }

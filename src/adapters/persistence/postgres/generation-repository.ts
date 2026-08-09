@@ -90,6 +90,7 @@ export function createDrizzleGenerationRepository<
             front: schema.cardDrafts.front,
             back: schema.cardDrafts.back,
             reviewStatus: schema.cardDrafts.reviewStatus,
+            approvedFlashcardId: schema.cardDrafts.approvedFlashcardId,
           });
 
         const [completed] = await transaction
@@ -133,6 +134,7 @@ export function createDrizzleGenerationRepository<
           front: schema.cardDrafts.front,
           back: schema.cardDrafts.back,
           reviewStatus: schema.cardDrafts.reviewStatus,
+          approvedFlashcardId: schema.cardDrafts.approvedFlashcardId,
         })
         .from(schema.cardDrafts)
         .where(eq(schema.cardDrafts.sourceTextId, id))

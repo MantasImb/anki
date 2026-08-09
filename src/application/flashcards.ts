@@ -6,6 +6,7 @@ export type NewFlashcard = {
 export type Flashcard = NewFlashcard & {
   id: string;
   recallStreak: number;
+  sourceTextId?: string | null;
 };
 
 export interface FlashcardRepository {

@@ -23,6 +23,7 @@ export function createDrizzleFlashcardRepository<
         .values(input)
         .returning({
           id: schema.flashcards.id,
+          sourceTextId: schema.flashcards.sourceTextId,
           front: schema.flashcards.front,
           back: schema.flashcards.back,
           recallStreak: schema.flashcards.recallStreak,
@@ -52,6 +53,7 @@ export function createDrizzleFlashcardRepository<
       const [flashcard] = await database
         .select({
           id: schema.flashcards.id,
+          sourceTextId: schema.flashcards.sourceTextId,
           front: schema.flashcards.front,
           back: schema.flashcards.back,
           recallStreak: schema.flashcards.recallStreak,
@@ -66,6 +68,7 @@ export function createDrizzleFlashcardRepository<
       return database
         .select({
           id: schema.flashcards.id,
+          sourceTextId: schema.flashcards.sourceTextId,
           front: schema.flashcards.front,
           back: schema.flashcards.back,
           recallStreak: schema.flashcards.recallStreak,
@@ -88,6 +91,7 @@ export function createDrizzleFlashcardRepository<
         .where(eq(schema.flashcards.id, id))
         .returning({
           id: schema.flashcards.id,
+          sourceTextId: schema.flashcards.sourceTextId,
           front: schema.flashcards.front,
           back: schema.flashcards.back,
           recallStreak: schema.flashcards.recallStreak,
