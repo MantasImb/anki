@@ -6,13 +6,19 @@ describe("study assessment submission", () => {
     const recordResult = vi.fn(async (input) => ({
       ...input,
       createdAt: new Date("2026-08-09T12:00:00Z"),
+      recallStreak: 0,
     }));
     const formData = new FormData();
     formData.set("attemptId", "8de9e5d4-2788-47af-8767-d1a4b6a1b0fd");
     formData.set("flashcardId", "420d7e63-b4e4-4f5c-b88d-93ab42add48a");
     formData.set("assessment", "incorrect");
 
-    await submitStudyAssessment({ recordResult }, formData);
+    await expect(
+      submitStudyAssessment({ recordResult }, formData),
+    ).resolves.toEqual({
+      flashcardId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",
+      recallStreak: 0,
+    });
 
     expect(recordResult).toHaveBeenCalledWith({
       id: "8de9e5d4-2788-47af-8767-d1a4b6a1b0fd",

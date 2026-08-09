@@ -35,28 +35,28 @@ describe("PostgreSQL study persistence", () => {
       flashcardId: created.id,
       assessment: "correct",
     });
+    const { recallStreak, ...studyResult } = result;
 
-    expect(await study.history()).toEqual([result]);
+    expect(recallStreak).toBe(1);
+    expect(await study.history()).toEqual([studyResult]);
     expect(await flashcards.get(created.id)).toMatchObject({
       recallStreak: 1,
     });
   });
 
-  it("advances through saved Flashcards and wraps to the first", async () => {
+  it("provides every saved Flashcard to a study session", async () => {
     const database = drizzle(client);
     const flashcards = createFlashcardService(
       createDrizzleFlashcardRepository(database),
     );
-    await flashcards.create({ front: "høflig", back: "polite" });
-    await flashcards.create({ front: "ledig", back: "available" });
+    const first = await flashcards.create({ front: "høflig", back: "polite" });
+    const second = await flashcards.create({ front: "ledig", back: "available" });
     const study = createStudyService(createDrizzleStudyRepository(database));
 
-    const first = await study.nextCard();
-    const second = await study.nextCard(first?.id);
-    const wrapped = await study.nextCard(second?.id);
-
-    expect(second?.id).not.toBe(first?.id);
-    expect(wrapped).toEqual(first);
+    expect(await study.cards()).toEqual(
+      expect.arrayContaining([first, second]),
+    );
+    expect(await study.cards()).toHaveLength(2);
   });
 
   it("resets a persisted Recall Streak after an Incorrect result", async () => {
@@ -115,9 +115,11 @@ describe("PostgreSQL study persistence", () => {
 
     const first = await study.recordResult(attempt);
     const repeated = await study.recordResult(attempt);
+    const { recallStreak, ...studyResult } = first;
 
     expect(repeated).toEqual(first);
-    expect(await study.history()).toEqual([first]);
+    expect(recallStreak).toBe(1);
+    expect(await study.history()).toEqual([studyResult]);
     expect(await flashcards.get(created.id)).toMatchObject({
       recallStreak: 1,
     });
@@ -178,7 +180,12 @@ describe("PostgreSQL study persistence", () => {
     await flashcards.delete(created.id);
 
     expect(await study.history()).toEqual([
-      { ...result, flashcardId: null },
+      {
+        id: result.id,
+        flashcardId: null,
+        assessment: result.assessment,
+        createdAt: result.createdAt,
+      },
     ]);
   });
 });

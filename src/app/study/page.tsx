@@ -1,18 +1,14 @@
 import Link from "next/link";
+import { createStudyScheduler } from "@/application/study";
 import { getStudyService } from "@/composition/study";
 import { recordStudyAssessment } from "./actions";
-import { StudyCard } from "./study-card";
+import { StudySession } from "./study-card";
 
 export const dynamic = "force-dynamic";
 
-export default async function StudyPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ after?: string }>;
-}) {
-  const { after } = await searchParams;
-  const flashcard = await getStudyService().nextCard(after);
-  const attemptId = crypto.randomUUID();
+export default async function StudyPage() {
+  const cards = await getStudyService().cards();
+  const flashcard = createStudyScheduler().next(cards);
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
@@ -27,11 +23,11 @@ export default async function StudyPage({
       </p>
 
       {flashcard ? (
-        <StudyCard
+        <StudySession
           action={recordStudyAssessment}
-          attemptId={attemptId}
-          flashcard={flashcard}
-          key={attemptId}
+          cards={cards}
+          initialAttemptId={crypto.randomUUID()}
+          initialCardId={flashcard.id}
         />
       ) : (
         <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-12">

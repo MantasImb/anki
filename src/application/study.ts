@@ -9,6 +9,10 @@ export type StudyResult = {
   createdAt: Date;
 };
 
+export type RecordedStudyResult = StudyResult & {
+  recallStreak: number;
+};
+
 export type RecordStudyResult = {
   id: string;
   flashcardId: string;
@@ -16,9 +20,89 @@ export type RecordStudyResult = {
 };
 
 export interface StudyRepository {
-  nextCard(afterCardId?: string): Promise<Flashcard | undefined>;
+  cards(): Promise<Flashcard[]>;
   history(): Promise<StudyResult[]>;
-  recordResult(input: RecordStudyResult): Promise<StudyResult>;
+  recordResult(input: RecordStudyResult): Promise<RecordedStudyResult>;
+}
+
+export function createStudyScheduler(random: () => number = Math.random) {
+  const retryGaps = new Map<string, Set<string>>();
+
+  return {
+    next(cards: Flashcard[], previousCardId?: string): Flashcard | undefined {
+      const requiredAlternatives = (cardId: string) =>
+        Math.min(3, cards.filter(({ id }) => id !== cardId).length);
+      const retryGapIsOpen = (cardId: string) => {
+        const alternatives = retryGaps.get(cardId);
+        return (
+          alternatives !== undefined &&
+          alternatives.size < requiredAlternatives(cardId)
+        );
+      };
+      let candidates = cards.filter(({ id }) => !retryGapIsOpen(id));
+      if (candidates.length === 0) {
+        candidates = cards;
+      }
+
+      const withoutPrevious = candidates.filter(
+        ({ id }) => id !== previousCardId,
+      );
+      if (withoutPrevious.length > 0) {
+        candidates = withoutPrevious;
+      }
+
+      const novelAlternatives = candidates.filter(({ id }) =>
+        [...retryGaps.entries()].some(
+          ([incorrectCardId, seen]) =>
+            retryGapIsOpen(incorrectCardId) &&
+            id !== incorrectCardId &&
+            !seen.has(id),
+        ),
+      );
+      if (novelAlternatives.length > 0) {
+        candidates = novelAlternatives;
+      }
+
+      const weightOf = (card: Flashcard) =>
+        Math.max(1, 4 - card.recallStreak);
+      const totalWeight = candidates.reduce(
+        (total, card) => total + weightOf(card),
+        0,
+      );
+      let selection = random() * totalWeight;
+
+      let selected: Flashcard | undefined;
+      for (const card of candidates) {
+        selection -= weightOf(card);
+
+        if (selection < 0) {
+          selected = card;
+          break;
+        }
+      }
+
+      selected ??= candidates.at(-1);
+
+      if (selected) {
+        for (const [incorrectCardId, seen] of retryGaps) {
+          if (incorrectCardId !== selected.id) {
+            seen.add(selected.id);
+          }
+        }
+
+        if (!retryGapIsOpen(selected.id)) {
+          retryGaps.delete(selected.id);
+        }
+      }
+
+      return selected;
+    },
+    recordResult(cardId: string, assessment: StudyAssessment) {
+      if (assessment === "incorrect") {
+        retryGaps.set(cardId, new Set());
+      }
+    },
+  };
 }
 
 export function nextRecallStreak(
@@ -34,8 +118,8 @@ export function nextRecallStreak(
 
 export function createStudyService(repository: StudyRepository) {
   return {
-    nextCard(afterCardId?: string) {
-      return repository.nextCard(afterCardId);
+    cards() {
+      return repository.cards();
     },
     history() {
       return repository.history();

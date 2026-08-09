@@ -1,42 +1,139 @@
 import { describe, expect, it } from "vitest";
 import type { Flashcard } from "./flashcards";
 import {
+  createStudyScheduler,
   createStudyService,
   nextRecallStreak,
   type RecordStudyResult,
+  type RecordedStudyResult,
   type StudyRepository,
   type StudyResult,
 } from "./study";
 
+const weightedCards: Flashcard[] = [
+  { id: "card-0", front: "null", back: "zero", recallStreak: 0 },
+  { id: "card-1", front: "én", back: "one", recallStreak: 1 },
+  { id: "card-2", front: "to", back: "two", recallStreak: 2 },
+  { id: "card-3", front: "tre", back: "three", recallStreak: 3 },
+];
+
+describe("adaptive study ordering", () => {
+  it.each([
+    [0, "card-0"],
+    [0.39, "card-0"],
+    [0.4, "card-1"],
+    [0.69, "card-1"],
+    [0.7, "card-2"],
+    [0.89, "card-2"],
+    [0.9, "card-3"],
+    [0.99, "card-3"],
+  ])("selects by the 4/3/2/1 weight boundaries at %s", (random, id) => {
+    const scheduler = createStudyScheduler(() => random);
+
+    expect(scheduler.next(weightedCards)?.id).toBe(id);
+  });
+
+  it("holds an Incorrect Flashcard back for three other study positions", () => {
+    const cards = [
+      ...weightedCards,
+      { id: "card-4", front: "fire", back: "four", recallStreak: 0 },
+    ];
+    const scheduler = createStudyScheduler(() => 0);
+
+    scheduler.recordResult("card-0", "incorrect");
+
+    expect(scheduler.next(cards)?.id).toBe("card-1");
+    expect(scheduler.next(cards, "card-1")?.id).toBe("card-2");
+    expect(scheduler.next(cards, "card-2")?.id).toBe("card-3");
+    expect(scheduler.next(cards, "card-3")?.id).toBe("card-0");
+  });
+
+  it("shows every available alternative before retrying in a tiny collection", () => {
+    const cards = weightedCards.slice(0, 3);
+    const scheduler = createStudyScheduler(() => 0);
+
+    scheduler.recordResult("card-0", "incorrect");
+
+    expect(scheduler.next(cards)?.id).toBe("card-1");
+    expect(scheduler.next(cards, "card-1")?.id).toBe("card-2");
+    expect(scheduler.next(cards, "card-2")?.id).toBe("card-0");
+  });
+
+  it("starts a new Retry Gap when a retried Flashcard is Incorrect again", () => {
+    const cards = weightedCards.slice(0, 2);
+    const scheduler = createStudyScheduler(() => 0);
+
+    scheduler.recordResult("card-0", "incorrect");
+    expect(scheduler.next(cards)?.id).toBe("card-1");
+    expect(scheduler.next(cards, "card-1")?.id).toBe("card-0");
+
+    scheduler.recordResult("card-0", "incorrect");
+
+    expect(scheduler.next(cards, "card-0")?.id).toBe("card-1");
+  });
+
+  it("keeps a one-card session moving when no alternative exists", () => {
+    const cards = weightedCards.slice(0, 1);
+    const scheduler = createStudyScheduler(() => 0);
+
+    scheduler.recordResult("card-0", "incorrect");
+
+    expect(scheduler.next(cards, "card-0")?.id).toBe("card-0");
+  });
+
+  it("clears the Retry Gap when a fresh session starts", () => {
+    const firstSession = createStudyScheduler(() => 0);
+    firstSession.recordResult("card-0", "incorrect");
+    expect(firstSession.next(weightedCards)?.id).toBe("card-1");
+
+    const freshSession = createStudyScheduler(() => 0);
+
+    expect(freshSession.next(weightedCards)?.id).toBe("card-0");
+  });
+
+  it("keeps moving if every Flashcard is temporarily in a Retry Gap", () => {
+    const cards = weightedCards.slice(0, 2);
+    const scheduler = createStudyScheduler(() => 0);
+    scheduler.recordResult("card-0", "incorrect");
+    scheduler.recordResult("card-1", "incorrect");
+
+    expect(scheduler.next(cards)?.id).toBe("card-0");
+  });
+
+  it("keeps an out-of-range mastered Flashcard eligible at minimum weight", () => {
+    const scheduler = createStudyScheduler(() => 0);
+    const cards = [
+      { id: "mastered", front: "ferdig", back: "finished", recallStreak: 7 },
+      weightedCards[0],
+    ];
+
+    expect(scheduler.next(cards)?.id).toBe("mastered");
+  });
+});
+
 class MemoryStudyRepository implements StudyRepository {
   private readonly results: StudyResult[] = [];
 
-  constructor(readonly cards: Flashcard[]) {}
+  constructor(readonly flashcards: Flashcard[]) {}
 
-  async nextCard(afterCardId?: string): Promise<Flashcard | undefined> {
-    if (!afterCardId) {
-      return this.cards[0];
-    }
-
-    const currentIndex = this.cards.findIndex(({ id }) => id === afterCardId);
-    return this.cards[(currentIndex + 1) % this.cards.length];
+  async cards(): Promise<Flashcard[]> {
+    return this.flashcards;
   }
 
   async history(): Promise<StudyResult[]> {
     return [...this.results];
   }
 
-  async recordResult(input: RecordStudyResult): Promise<StudyResult> {
+  async recordResult(input: RecordStudyResult): Promise<RecordedStudyResult> {
     const existing = this.results.find(({ id }) => id === input.id);
-
-    if (existing) {
-      return existing;
-    }
-
-    const card = this.cards.find(({ id }) => id === input.flashcardId);
+    const card = this.flashcards.find(({ id }) => id === input.flashcardId);
 
     if (!card) {
       throw new Error("Flashcard was not found.");
+    }
+
+    if (existing) {
+      return { ...existing, recallStreak: card.recallStreak };
     }
 
     card.recallStreak = nextRecallStreak(
@@ -45,7 +142,7 @@ class MemoryStudyRepository implements StudyRepository {
     );
     const result = { ...input, createdAt: new Date() };
     this.results.push(result);
-    return result;
+    return { ...result, recallStreak: card.recallStreak };
   }
 }
 
@@ -75,27 +172,7 @@ describe("study session", () => {
       new MemoryStudyRepository([flashcard]),
     );
 
-    expect(await study.nextCard()).toEqual(flashcard);
-  });
-
-  it("advances to the next saved Flashcard after an assessment", async () => {
-    const first = {
-      id: "card-1",
-      front: "høflig",
-      back: "polite",
-      recallStreak: 0,
-    };
-    const second = {
-      id: "card-2",
-      front: "ledig",
-      back: "available",
-      recallStreak: 0,
-    };
-    const study = createStudyService(
-      new MemoryStudyRepository([first, second]),
-    );
-
-    expect(await study.nextCard(first.id)).toEqual(second);
+    expect(await study.cards()).toEqual([flashcard]);
   });
 
   it("records a Correct result and retains the updated streak", async () => {
@@ -120,8 +197,12 @@ describe("study session", () => {
       flashcardId: flashcard.id,
       assessment: "correct",
     });
-    expect(await study.history()).toEqual([recorded]);
-    expect(await study.nextCard()).toMatchObject({ recallStreak: 1 });
+    expect(await study.history()).toEqual([
+      expect.objectContaining({ id: recorded.id }),
+    ]);
+    expect(await study.cards()).toEqual([
+      expect.objectContaining({ recallStreak: 1 }),
+    ]);
   });
 
   it("records only one result for a repeated study attempt", async () => {
@@ -144,7 +225,11 @@ describe("study session", () => {
     const repeated = await study.recordResult(attempt);
 
     expect(repeated).toEqual(first);
-    expect(await study.history()).toEqual([first]);
-    expect(await study.nextCard()).toMatchObject({ recallStreak: 1 });
+    expect(await study.history()).toEqual([
+      expect.objectContaining({ id: first.id }),
+    ]);
+    expect(await study.cards()).toEqual([
+      expect.objectContaining({ recallStreak: 1 }),
+    ]);
   });
 });

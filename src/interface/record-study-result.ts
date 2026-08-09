@@ -44,6 +44,10 @@ export async function submitStudyAssessment(
     throw new StudyAssessmentSubmissionError();
   }
 
-  await study.recordResult(input);
-  return { flashcardId: input.flashcardId };
+  const recorded = await study.recordResult(input);
+
+  return {
+    flashcardId: input.flashcardId,
+    recallStreak: recorded.recallStreak,
+  };
 }

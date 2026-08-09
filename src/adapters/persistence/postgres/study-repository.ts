@@ -1,9 +1,10 @@
-import { and, asc, eq, gt, or } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { FlashcardNotFoundError, type Flashcard } from "../../../application/flashcards";
 import {
   nextRecallStreak,
   type RecordStudyResult,
+  type RecordedStudyResult,
   type StudyRepository,
   type StudyResult,
 } from "../../../application/study";
@@ -17,59 +18,15 @@ const selectedFlashcard = {
   recallStreak: schema.flashcards.recallStreak,
 };
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value,
-  );
-}
-
 export function createDrizzleStudyRepository<
   TResult extends PgQueryResultHKT,
 >(database: PgDatabase<TResult, typeof schema>): StudyRepository {
   return {
-    async nextCard(afterCardId?: string): Promise<Flashcard | undefined> {
-      if (afterCardId && isUuid(afterCardId)) {
-        const [cursor] = await database
-          .select({
-            createdAt: schema.flashcards.createdAt,
-            id: schema.flashcards.id,
-          })
-          .from(schema.flashcards)
-          .where(eq(schema.flashcards.id, afterCardId))
-          .limit(1);
-
-        if (cursor) {
-          const [next] = await database
-            .select(selectedFlashcard)
-            .from(schema.flashcards)
-            .where(
-              or(
-                gt(schema.flashcards.createdAt, cursor.createdAt),
-                and(
-                  eq(schema.flashcards.createdAt, cursor.createdAt),
-                  gt(schema.flashcards.id, cursor.id),
-                ),
-              ),
-            )
-            .orderBy(
-              asc(schema.flashcards.createdAt),
-              asc(schema.flashcards.id),
-            )
-            .limit(1);
-
-          if (next) {
-            return next;
-          }
-        }
-      }
-
-      const [first] = await database
+    cards(): Promise<Flashcard[]> {
+      return database
         .select(selectedFlashcard)
         .from(schema.flashcards)
-        .orderBy(asc(schema.flashcards.createdAt), asc(schema.flashcards.id))
-        .limit(1);
-
-      return first;
+        .orderBy(asc(schema.flashcards.createdAt), asc(schema.flashcards.id));
     },
 
     history(): Promise<StudyResult[]> {
@@ -87,7 +44,7 @@ export function createDrizzleStudyRepository<
         );
     },
 
-    recordResult(input: RecordStudyResult): Promise<StudyResult> {
+    recordResult(input: RecordStudyResult): Promise<RecordedStudyResult> {
       return database.transaction(async (transaction) => {
         const [flashcard] = await transaction
           .select({ recallStreak: schema.flashcards.recallStreak })
@@ -121,20 +78,20 @@ export function createDrizzleStudyRepository<
             .from(schema.studyResults)
             .where(eq(schema.studyResults.id, input.id));
 
-          return existing;
+          return { ...existing, recallStreak: flashcard.recallStreak };
         }
+
+        const recallStreak = nextRecallStreak(
+          flashcard.recallStreak,
+          input.assessment,
+        );
 
         await transaction
           .update(schema.flashcards)
-          .set({
-            recallStreak: nextRecallStreak(
-              flashcard.recallStreak,
-              input.assessment,
-            ),
-          })
+          .set({ recallStreak })
           .where(eq(schema.flashcards.id, input.flashcardId));
 
-        return created;
+        return { ...created, recallStreak };
       });
     },
   };
