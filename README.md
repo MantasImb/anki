@@ -49,11 +49,15 @@ Replace the placeholders in `.env`:
 DATABASE_URL=postgresql://your-railway-public-connection
 OPENAI_API_KEY=your-openai-project-key
 OPENAI_MODEL=gpt-5.6
+OPENAI_TIMEOUT_MS=60000
 SOURCE_TEXT_MAX_CHARACTERS=20000
 ```
 
 `SOURCE_TEXT_MAX_CHARACTERS` is optional and defaults to `20000`. It limits a
 single Source Text before an OpenAI request is made.
+
+`OPENAI_TIMEOUT_MS` is optional and defaults to `60000` (60 seconds). A timed
+out attempt retains the Source Text and can be retried from the application.
 
 Apply every versioned database migration, then start the application:
 
@@ -69,6 +73,10 @@ The main workflows are:
 - `/cards/new` — create a Flashcard manually.
 - `/cards` — browse, edit, or delete saved Flashcards.
 - `/generate` — paste Norwegian Source Text and generate pending Card Drafts.
+- `/settings/generation` — edit or restore the persistent Generation
+  Instructions used by future attempts.
+- `/sources/{id}/drafts` — review completed drafts or retry a failed attempt
+  without pasting the Source Text again.
 
 ## Deployment environment
 
@@ -78,6 +86,7 @@ Add the same variables to the application's protected deployment environment:
   on Vercel.
 - `OPENAI_API_KEY` — the secret OpenAI project key.
 - `OPENAI_MODEL` — the configured Structured Outputs-capable model.
+- `OPENAI_TIMEOUT_MS` — optional provider request timeout in milliseconds.
 - `SOURCE_TEXT_MAX_CHARACTERS` — optional Source Text guardrail.
 
 Apply migrations to the production database before using a deployment. Do not

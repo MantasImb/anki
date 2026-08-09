@@ -1,6 +1,9 @@
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import type { CardDraftGenerator } from "../../application/generation";
+import {
+  GenerationFailure,
+  type CardDraftGenerator,
+} from "../../application/generation";
 
 const cardDraftCollectionSchema = z.object({
   drafts: z
@@ -29,7 +32,15 @@ type StructuredResponseRequest = {
 
 type ParseStructuredResponse = (
   request: StructuredResponseRequest,
-) => Promise<{ output_parsed: unknown }>;
+) => Promise<{
+  output_parsed: unknown;
+  status?: string;
+  incomplete_details?: { reason?: string } | null;
+  output?: Array<{
+    type: string;
+    content?: Array<{ type: string; refusal?: string }>;
+  }>;
+}>;
 
 export function createOpenAICardDraftGenerator({
   model,
@@ -40,16 +51,70 @@ export function createOpenAICardDraftGenerator({
 }): CardDraftGenerator {
   return {
     async generate({ sourceText, generationInstructions }) {
-      const response = await parse({
-        model,
-        input: [
-          { role: "system", content: generationInstructions },
-          { role: "user", content: sourceText },
-        ],
-        text: { format: cardDraftCollectionFormat },
-      });
+      let response: Awaited<ReturnType<ParseStructuredResponse>>;
+      try {
+        response = await parse({
+          model,
+          input: [
+            { role: "system", content: generationInstructions },
+            { role: "user", content: sourceText },
+          ],
+          text: { format: cardDraftCollectionFormat },
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "APIConnectionTimeoutError") {
+          throw new GenerationFailure("timeout", {
+            provider: "openai",
+            errorType: error.name,
+          });
+        }
 
-      return cardDraftCollectionSchema.parse(response.output_parsed).drafts;
+        const providerError = error as {
+          name?: string;
+          status?: number;
+          code?: string;
+          request_id?: string;
+        };
+        throw new GenerationFailure("provider_error", {
+          provider: "openai",
+          errorType: providerError?.name,
+          status: providerError?.status,
+          code: providerError?.code,
+          requestId: providerError?.request_id,
+        });
+      }
+
+      if (response.status === "incomplete") {
+        throw new GenerationFailure("incomplete", {
+          provider: "openai",
+          reason: response.incomplete_details?.reason,
+          responseStatus: response.status,
+        });
+      }
+
+      const refused = response.output?.some(
+        (output) =>
+          output.type === "message" &&
+          output.content?.some((item) => item.type === "refusal"),
+      );
+
+      if (refused) {
+        throw new GenerationFailure("refusal", {
+          provider: "openai",
+          responseStatus: response.status,
+        });
+      }
+
+      const parsed = cardDraftCollectionSchema.safeParse(response.output_parsed);
+      if (!parsed.success) {
+        throw new GenerationFailure("incomplete", {
+          provider: "openai",
+          reason: "invalid_structured_output",
+          responseStatus: response.status,
+        });
+      }
+
+      return parsed.data.drafts;
     },
   };
 }

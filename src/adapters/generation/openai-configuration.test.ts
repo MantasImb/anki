@@ -14,11 +14,13 @@ describe("OpenAI deployment configuration", () => {
       requireOpenAIConfiguration({
         OPENAI_API_KEY: "test-key",
         OPENAI_MODEL: "configured-model",
+        OPENAI_TIMEOUT_MS: "45000",
         SOURCE_TEXT_MAX_CHARACTERS: "12000",
       }),
     ).toEqual({
       apiKey: "test-key",
       model: "configured-model",
+      timeoutMilliseconds: 45_000,
       maximumSourceTextCharacters: 12_000,
     });
   });

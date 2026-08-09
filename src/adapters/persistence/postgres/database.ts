@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { requireDatabaseUrl } from "./database-url";
 import { createDrizzleFlashcardRepository } from "./flashcard-repository";
+import { createDrizzleGenerationInstructionsRepository } from "./generation-instructions-repository";
 import { createDrizzleGenerationRepository } from "./generation-repository";
 import * as schema from "./schema";
 
@@ -27,4 +28,8 @@ export function getPostgresFlashcardRepository() {
 
 export function getPostgresGenerationRepository() {
   return createDrizzleGenerationRepository(getDatabase());
+}
+
+export function getPostgresGenerationInstructionsRepository() {
+  return createDrizzleGenerationInstructionsRepository(getDatabase());
 }

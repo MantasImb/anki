@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createGenerationService } from "../../../application/generation";
+import { GenerationFailure } from "../../../application/generation";
 import { createDrizzleGenerationRepository } from "./generation-repository";
 
 describe("PostgreSQL Generation persistence", () => {
@@ -48,6 +49,45 @@ describe("PostgreSQL Generation persistence", () => {
         reviewStatus: "pending",
       },
     ]);
+  });
+
+  it("retains a failed Source Text with no Card Drafts", async () => {
+    const generation = createGenerationService({
+      repository: createDrizzleGenerationRepository(drizzle(client)),
+      generator: {
+        async generate() {
+          throw new GenerationFailure("provider_error");
+        },
+      },
+      maximumSourceTextCharacters: 20_000,
+    });
+
+    let sourceTextId = "";
+    try {
+      await generation.generate("Drosjesjåføren skal opptre høflig.");
+    } catch (error) {
+      sourceTextId = (error as { sourceTextId: string }).sourceTextId;
+    }
+
+    expect(await generation.getSourceWithDrafts(sourceTextId)).toMatchObject({
+      generationStatus: "failed",
+      drafts: [],
+    });
+  });
+
+  it("allows only one retry to claim a failed Source Text", async () => {
+    const repository = createDrizzleGenerationRepository(drizzle(client));
+    const source = await repository.createSource(
+      "Drosjesjåføren skal opptre høflig.",
+    );
+    await repository.failGeneration(source.id);
+
+    const [first, second] = await Promise.all([
+      repository.claimFailedSource(source.id),
+      repository.claimFailedSource(source.id),
+    ]);
+
+    expect([first, second].filter(Boolean)).toHaveLength(1);
   });
 
   it("retains no partial Card Drafts when the complete collection cannot be saved", async () => {

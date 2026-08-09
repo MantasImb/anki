@@ -1,4 +1,5 @@
 import {
+  GenerationAttemptFailedError,
   SourceTextValidationError,
   type createGenerationService,
 } from "../application/generation";
@@ -12,7 +13,8 @@ export type GenerationFormState =
       fieldErrors: { sourceText: string };
       values: { sourceText: string };
     }
-  | { status: "generated"; sourceTextId: string };
+  | { status: "generated"; sourceTextId: string }
+  | { status: "failed"; sourceTextId: string };
 
 export async function submitGenerationForm(
   generation: Pick<GenerationService, "generate">,
@@ -31,6 +33,10 @@ export async function submitGenerationForm(
         fieldErrors: error.fieldErrors,
         values: { sourceText },
       };
+    }
+
+    if (error instanceof GenerationAttemptFailedError) {
+      return { status: "failed", sourceTextId: error.sourceTextId };
     }
 
     throw error;

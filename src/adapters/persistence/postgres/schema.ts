@@ -56,6 +56,14 @@ export const sourceTexts = pgTable(
   ],
 );
 
+export const generationInstructions = pgTable("generation_instructions", {
+  id: text("id").primaryKey(),
+  instructions: text("instructions").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export const cardDrafts = pgTable(
   "card_drafts",
   {

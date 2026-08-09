@@ -16,11 +16,11 @@ export default function RootLayout({
     <html lang="en">
       <body className="flex min-h-screen flex-col">
         <header className="border-b border-slate-200 bg-white">
-          <nav className="mx-auto flex min-h-16 w-full max-w-5xl items-center justify-between gap-4 px-5 sm:px-8">
+          <nav className="mx-auto flex min-h-16 w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3 sm:px-8">
             <Link className="font-semibold text-slate-950" href="/">
               Norwegian Flashcards
             </Link>
-            <div className="flex items-center gap-4">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
               <Link
                 className="text-sm font-semibold text-sky-700 hover:text-sky-900"
                 href="/generate"
@@ -32,6 +32,12 @@ export default function RootLayout({
                 href="/cards"
               >
                 All Flashcards
+              </Link>
+              <Link
+                className="text-sm font-semibold text-sky-700 hover:text-sky-900"
+                href="/settings/generation"
+              >
+                Settings
               </Link>
             </div>
           </nav>

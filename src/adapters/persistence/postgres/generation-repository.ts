@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import type {
   GeneratedCardDraft,
@@ -29,6 +29,45 @@ export function createDrizzleGenerationRepository<
         });
 
       return created;
+    },
+
+    async claimFailedSource(
+      sourceTextId: string,
+    ): Promise<SourceText | undefined> {
+      if (!isUuid(sourceTextId)) {
+        return undefined;
+      }
+
+      const [claimed] = await database
+        .update(schema.sourceTexts)
+        .set({ generationStatus: "ready" })
+        .where(
+          and(
+            eq(schema.sourceTexts.id, sourceTextId),
+            eq(schema.sourceTexts.generationStatus, "failed"),
+          ),
+        )
+        .returning({
+          id: schema.sourceTexts.id,
+          content: schema.sourceTexts.content,
+          generationStatus: schema.sourceTexts.generationStatus,
+        });
+
+      return claimed;
+    },
+
+    async failGeneration(sourceTextId: string): Promise<SourceWithDrafts> {
+      const [failed] = await database
+        .update(schema.sourceTexts)
+        .set({ generationStatus: "failed" })
+        .where(eq(schema.sourceTexts.id, sourceTextId))
+        .returning({
+          id: schema.sourceTexts.id,
+          content: schema.sourceTexts.content,
+          generationStatus: schema.sourceTexts.generationStatus,
+        });
+
+      return { ...failed, drafts: [] };
     },
 
     completeGeneration(

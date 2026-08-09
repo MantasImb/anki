@@ -13,7 +13,7 @@ export async function generateCardDrafts(
 ): Promise<GenerationFormState> {
   const state = await submitGenerationForm(getGenerationService(), formData);
 
-  if (state.status === "generated") {
+  if (state.status === "generated" || state.status === "failed") {
     redirect(`/sources/${state.sourceTextId}/drafts`);
   }
 

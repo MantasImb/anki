@@ -8,6 +8,7 @@ import {
 } from "@/adapters/generation/openai-configuration";
 import { getPostgresGenerationRepository } from "@/adapters/persistence/postgres/database";
 import { createGenerationService } from "@/application/generation";
+import { getGenerationInstructionsService } from "./generation-instructions";
 
 function getGenerationConfiguration() {
   return requireOpenAIConfiguration(process.env);
@@ -21,7 +22,11 @@ export function getGenerationFormConfiguration() {
 
 export function getGenerationService() {
   const configuration = getGenerationConfiguration();
-  const client = new OpenAI({ apiKey: configuration.apiKey });
+  const client = new OpenAI({
+    apiKey: configuration.apiKey,
+    maxRetries: 0,
+    timeout: configuration.timeoutMilliseconds,
+  });
   const generator = createOpenAICardDraftGenerator({
     model: configuration.model,
     parse: (request) => client.responses.parse(request),
@@ -30,6 +35,12 @@ export function getGenerationService() {
   return createGenerationService({
     repository: getPostgresGenerationRepository(),
     generator,
+    generationInstructions: getGenerationInstructionsService(),
+    logger: {
+      generationFailed(event) {
+        console.error("Generation attempt failed", event);
+      },
+    },
     maximumSourceTextCharacters:
       configuration.maximumSourceTextCharacters,
   });
