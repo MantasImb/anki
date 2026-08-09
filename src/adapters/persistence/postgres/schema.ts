@@ -54,6 +54,32 @@ export const flashcards = pgTable(
       "flashcards_back_not_blank",
       sql`length(regexp_replace(${table.back}, '[[:space:]]', '', 'g')) > 0`,
     ),
+    check(
+      "flashcards_recall_streak_valid",
+      sql`${table.recallStreak} between 0 and 3`,
+    ),
+  ],
+);
+
+export const studyResults = pgTable(
+  "study_results",
+  {
+    id: uuid("id").primaryKey(),
+    flashcardId: uuid("flashcard_id").references(() => flashcards.id, {
+      onDelete: "set null",
+    }),
+    assessment: text("assessment")
+      .$type<"correct" | "incorrect">()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "study_results_assessment_valid",
+      sql`${table.assessment} in ('correct', 'incorrect')`,
+    ),
   ],
 );
 

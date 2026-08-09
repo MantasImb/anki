@@ -70,6 +70,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 The main workflows are:
 
+- `/study` — start a self-assessed study session immediately. Recall the
+  Norwegian Front, reveal the English Back, then mark the attempt Correct or
+  Incorrect. Results and Recall Streaks persist in PostgreSQL.
 - `/cards/new` — create a Flashcard manually.
 - `/cards` — browse, edit, or delete saved Flashcards.
 - `/generate` — paste Norwegian Source Text and generate pending Card Drafts.
@@ -93,6 +96,11 @@ Add the same variables to the application's protected deployment environment:
 
 Apply migrations to the production database before using a deployment. Do not
 expose either credential to browser code.
+
+The Phase 6 migrations create append-only Study Results, preserve that history
+when a Flashcard is deleted, and constrain Recall Streaks to the supported
+zero-through-three range. Run `bun run db:migrate` after pulling this phase
+before opening `/study`.
 
 ## Database changes
 

@@ -36,6 +36,20 @@
       "when": 1786288885069,
       "tag": "0004_tense_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786297794223,
+      "tag": "0005_motionless_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786298225413,
+      "tag": "0006_tough_photon",
+      "breakpoints": true
     }
   ]
 }

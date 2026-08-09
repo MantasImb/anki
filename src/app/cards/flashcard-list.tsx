@@ -14,7 +14,7 @@ export function FlashcardList({ flashcards }: { flashcards: Flashcard[] }) {
               Norwegian Front
             </p>
             <Link
-              className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-3 text-sm font-semibold text-sky-700 hover:bg-sky-50 hover:text-sky-900"
+              className="inline-flex shrink-0 items-center rounded-lg text-sm font-semibold text-sky-700 hover:bg-sky-50 hover:text-sky-900"
               href={`/cards/${flashcard.id}/edit`}
             >
               Edit Flashcard

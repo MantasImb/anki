@@ -7,6 +7,7 @@ import { createDrizzleFlashcardRepository } from "./flashcard-repository";
 import { createDrizzleCardDraftReviewRepository } from "./card-draft-review-repository";
 import { createDrizzleGenerationInstructionsRepository } from "./generation-instructions-repository";
 import { createDrizzleGenerationRepository } from "./generation-repository";
+import { createDrizzleStudyRepository } from "./study-repository";
 import * as schema from "./schema";
 
 let client: ReturnType<typeof postgres> | undefined;
@@ -37,4 +38,8 @@ export function getPostgresGenerationRepository() {
 
 export function getPostgresGenerationInstructionsRepository() {
   return createDrizzleGenerationInstructionsRepository(getDatabase());
+}
+
+export function getPostgresStudyRepository() {
+  return createDrizzleStudyRepository(getDatabase());
 }

@@ -16,6 +16,12 @@ export default function Home() {
       <div className="mt-10 flex flex-col gap-3 sm:flex-row">
         <Link
           className="inline-flex min-h-12 items-center justify-center rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white transition hover:bg-sky-800"
+          href="/study"
+        >
+          Start Studying
+        </Link>
+        <Link
+          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50"
           href="/generate"
         >
           Generate Card Drafts

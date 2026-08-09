@@ -23,6 +23,12 @@ export default function RootLayout({
             <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
               <Link
                 className="text-sm font-semibold text-sky-700 hover:text-sky-900"
+                href="/study"
+              >
+                Study
+              </Link>
+              <Link
+                className="text-sm font-semibold text-sky-700 hover:text-sky-900"
                 href="/generate"
               >
                 Generate
