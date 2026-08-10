@@ -7,5 +7,9 @@ export function requireDatabaseUrl(environment: DatabaseEnvironment): string {
     throw new Error("DATABASE_URL is required to persist Flashcards.");
   }
 
+  if (!/^postgres(?:ql)?:\/\//i.test(databaseUrl)) {
+    throw new Error("DATABASE_URL must be a PostgreSQL connection URL.");
+  }
+
   return databaseUrl;
 }

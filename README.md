@@ -97,6 +97,45 @@ Add the same variables to the application's protected deployment environment:
 Apply migrations to the production database before using a deployment. Do not
 expose either credential to browser code.
 
+Set these values in Vercel's **Preview** and **Production** environments as
+appropriate. Never create `NEXT_PUBLIC_DATABASE_URL` or
+`NEXT_PUBLIC_OPENAI_API_KEY`; Phase 8 startup validation rejects those names so
+credentials cannot be bundled for browser use.
+
+The generated Vercel URL is publicly reachable. V1 intentionally has no
+accounts, authorization, or Vercel Deployment Protection, so do not store
+material that should not be visible to someone who obtains the URL.
+
+### Release preparation
+
+Use the Vercel environment selected for the deployment to apply the complete
+versioned migration history and verify the configuration plus expected schema:
+
+```bash
+vercel env run -e preview -- bun run release:prepare
+vercel env run -e production -- bun run release:prepare
+```
+
+Run only the environment that you are about to release. `release:prepare`
+changes the selected database by applying unapplied migrations. It does not
+call OpenAI, but it verifies that the API key and configurable model are
+present. Application startup performs the same configuration validation and
+fails with the offending variable name without printing its value.
+
+Use a separate disposable Railway database for Vercel Preview. The automated
+phone journey invokes the configured OpenAI provider and writes durable test
+data:
+
+```bash
+bunx playwright install chromium
+RELEASE_BASE_URL=https://your-preview.vercel.app bun run test:e2e:release
+```
+
+The full provisioning, phone/desktop validation, safe-log checks, and manual
+smoke test are in [`docs/release-checklist.md`](docs/release-checklist.md). A
+beginner-friendly explanation of the browser test is in
+[`docs/playwright-release-test.md`](docs/playwright-release-test.md).
+
 The Phase 6 migrations create append-only Study Results, preserve that history
 when a Flashcard is deleted, and constrain Recall Streaks to the supported
 zero-through-three range. Run `bun run db:migrate` after pulling this phase
@@ -119,5 +158,8 @@ bun run lint
 bun run test
 bun run build
 ```
+
+These normal checks do not make live OpenAI requests. The opt-in deployed
+release journey is deliberately separate under `test:e2e:release`.
 
 Product requirements and architectural decisions live in [`docs/`](docs/). The phased delivery plan is in [`plans/norwegian-flashcards-v1.md`](plans/norwegian-flashcards-v1.md).

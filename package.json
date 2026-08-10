@@ -11,8 +11,11 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:e2e:release": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "release:verify": "bun scripts/verify-deployment.ts",
+    "release:prepare": "bun run db:migrate && bun run release:verify"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
+    "@playwright/test": "1.58.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
