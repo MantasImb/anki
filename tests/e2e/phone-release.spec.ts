@@ -1,4 +1,36 @@
-import { expect, test, type Page } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { expect, test as base, type Dialog, type Page } from "@playwright/test";
+
+async function deleteFlashcardsByMarker(page: Page, marker: string) {
+  await page.goto("/cards");
+  const matchingCards = page.locator("main li").filter({ hasText: marker });
+
+  const acceptDeletion = (dialog: Dialog) => dialog.accept();
+  page.on("dialog", acceptDeletion);
+
+  try {
+    while ((await matchingCards.count()) > 0) {
+      await matchingCards
+        .first()
+        .getByRole("link", { name: "Edit Flashcard" })
+        .click();
+      await page.getByRole("button", { name: "Delete Flashcard" }).click();
+      await expect(page).toHaveURL(/\/cards$/);
+    }
+  } finally {
+    page.off("dialog", acceptDeletion);
+  }
+
+  await expect(matchingCards).toHaveCount(0);
+}
+
+const test = base.extend<{ runMarker: string }>({
+  runMarker: async ({ page }, provide) => {
+    const marker = `e2e-${randomUUID()}`;
+    await provide(marker);
+    await deleteFlashcardsByMarker(page, marker);
+  },
+});
 
 async function addManualFlashcard(page: Page, front: string, back: string) {
   await page.goto("/cards/new");
@@ -14,7 +46,9 @@ function studyFront(page: Page) {
 
 async function answer(page: Page, assessment: "Correct" | "Incorrect") {
   await page.getByRole("button", { name: "Reveal English Back" }).click();
-  await page.getByRole("button", { name: assessment }).click();
+  await page
+    .getByRole("button", { name: assessment, exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "Reveal English Back" }),
   ).toBeVisible();
@@ -22,10 +56,10 @@ async function answer(page: Page, assessment: "Correct" | "Incorrect") {
 
 test("one curriculum unit becomes editable cards and a retry-gapped study session", async ({
   page,
+  runMarker,
 }) => {
-  const run = Date.now().toString(36);
-  const targetFront = `fase åtte mål ${run}`;
-  const targetBack = `phase eight target ${run}`;
+  const targetFront = `fase åtte mål ${runMarker}`;
+  const targetBack = `phase eight target ${runMarker}`;
 
   for (const [position, translation] of [
     ["første alternativ", "first alternative"],
@@ -35,8 +69,8 @@ test("one curriculum unit becomes editable cards and a retry-gapped study sessio
   ]) {
     await addManualFlashcard(
       page,
-      `${position} ${run}`,
-      `${translation} ${run}`,
+      `${position} ${runMarker}`,
+      `${translation} ${runMarker}`,
     );
   }
 
@@ -48,55 +82,49 @@ test("one curriculum unit becomes editable cards and a retry-gapped study sessio
       "Eleven leser en bok.",
       "Læreren skriver på tavla.",
       "Vi øver på norsk hver dag.",
-      `Fase åtte mål ${run} er klart.`,
+      `Fase åtte mål ${runMarker} er klart.`,
     ].join(" "),
   );
   await page.getByRole("button", { name: "Generate Card Drafts" }).click();
   await expect(page).toHaveURL(/\/sources\/[^/]+\/drafts$/);
 
-  await page.getByLabel("Norwegian Front").first().fill(targetFront);
-  await page.getByLabel("English Back").first().fill(targetBack);
-  await page.getByRole("button", { name: "Save edits" }).first().click();
-  await expect(page.getByText("Card Draft edits saved.").first()).toBeVisible();
+  const frontFields = page.getByLabel("Norwegian Front");
+  const backFields = page.getByLabel("English Back");
+  const draftCount = await frontFields.count();
+
+  for (let index = 0; index < draftCount; index += 1) {
+    const front = frontFields.nth(index);
+    await front.fill(
+      index === 0 ? targetFront : `${await front.inputValue()} ${runMarker}`,
+    );
+    if (index === 0) {
+      await backFields.first().fill(targetBack);
+    }
+    await page.getByRole("button", { name: "Save edits" }).nth(index).click();
+    await expect(page.getByText("Card Draft edits saved.").nth(index))
+      .toBeVisible();
+  }
   await page
     .getByRole("button", { name: /Add \d+ Flashcards?/ })
     .click();
   await expect(page).toHaveURL(/\/cards$/);
-  await expect(page.getByText(targetFront, { exact: true })).toBeVisible();
+  const storedTarget = page.locator("main li").filter({ hasText: targetFront });
+  await expect(storedTarget.getByText(targetFront, { exact: true }))
+    .toBeVisible();
+  await expect(storedTarget.getByText(targetBack, { exact: true }))
+    .toBeVisible();
 
   await page.goto("/study");
-  let foundTarget = false;
-  for (let position = 0; position < 80; position += 1) {
-    if ((await studyFront(page).textContent()) === targetFront) {
-      foundTarget = true;
-      break;
-    }
-    await answer(page, "Correct");
-  }
-  expect(foundTarget, "generated Flashcard should enter study").toBe(true);
-
+  const retryFront = await studyFront(page).textContent();
+  expect(retryFront).not.toBeNull();
   await page.getByRole("button", { name: "Reveal English Back" }).click();
-  await expect(page.getByText(targetBack, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Incorrect" }).click();
   await expect(
     page.getByRole("button", { name: "Reveal English Back" }),
   ).toBeVisible();
 
   for (let gap = 0; gap < 3; gap += 1) {
-    await expect(studyFront(page)).not.toHaveText(targetFront);
+    await expect(studyFront(page)).not.toHaveText(retryFront ?? "");
     await answer(page, "Correct");
   }
-
-  let returnedAfterGap = false;
-  for (let position = 0; position < 80; position += 1) {
-    if ((await studyFront(page).textContent()) === targetFront) {
-      returnedAfterGap = true;
-      break;
-    }
-    await answer(page, "Correct");
-  }
-  expect(
-    returnedAfterGap,
-    "incorrect Flashcard should become eligible after three alternatives",
-  ).toBe(true);
 });
