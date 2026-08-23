@@ -108,23 +108,29 @@ material that should not be visible to someone who obtains the URL.
 
 ### Release preparation
 
-Use the Vercel environment selected for the deployment to apply the complete
-versioned migration history and verify the configuration plus expected schema:
+Release preparation deliberately ignores the ordinary `DATABASE_URL` when
+choosing its migration target. Set the exact database URL as
+`RELEASE_DATABASE_URL` in the ignored local `.env` file:
 
-```bash
-vercel env run -e preview -- bun run release:prepare
-vercel env run -e production -- bun run release:prepare
+```dotenv
+RELEASE_DATABASE_URL=postgresql://user:password@host:port/database
 ```
 
-Run only the environment that you are about to release. `release:prepare`
-changes the selected database by applying unapplied migrations. It does not
-call OpenAI, but it verifies that the API key and configurable model are
-present. Application startup performs the same configuration validation and
+Then run `bun run release:prepare`. Alternatively, export the variable only for
+the current shell. Copy the URL directly from the Railway service you intend to
+release and do not route this migration through `vercel env run`.
+The command prints only the credential-free `host:port/database` identity,
+applies every unapplied migration, verifies every checked-in migration against
+Drizzle's database journal, and checks required base tables, columns, and
+constraints. It does not call OpenAI, but it verifies that the API key and
+configurable model are present.
+Application startup performs the same application configuration validation and
 fails with the offending variable name without printing its value.
 
 Use a separate disposable Railway database for Vercel Preview. The automated
-phone journey invokes the configured OpenAI provider and writes durable test
-data:
+phone journey invokes the configured OpenAI provider. Its fixture deletes the
+run-marked Flashcards afterward, including after an assertion failure, while
+Source Text, Card Draft, and Study Result audit records remain durable:
 
 ```bash
 bunx playwright install chromium

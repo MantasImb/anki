@@ -74,17 +74,18 @@ The test performs one complete workflow:
    card.
 4. It saves the edit, adds all remaining drafts, and confirms that the edited
    Flashcard appears in the collection.
-5. It opens `/study` and answers other cards until the generated target card is
-   selected.
-6. It reveals the target's English Back and records an Incorrect result.
-7. It checks that the next three studied positions are different Flashcards.
-8. It continues studying until the target appears again, proving that it became
-   eligible after its three-card Retry Gap.
+5. It opens `/study`, reveals the selected card's English Back, and records an
+   Incorrect result.
+6. It checks that the next three studied positions are different Flashcards.
+7. After the assertions, its fixture deletes every Flashcard carrying the
+   unique run marker, even when the test fails.
 
-The scheduler is intentionally random, so the test allows up to 80 selections
-when looking for the target. A clean Preview database keeps this fast and makes
-the result reliable. A database containing hundreds of unrelated cards could
-make the test hit that limit even when the scheduler is correct.
+The scheduler is intentionally random. The browser journey therefore proves
+the visible three-position exclusion without waiting for a particular weighted
+selection. A deterministic scheduler test proves that the incorrect Flashcard
+becomes eligible immediately after the Retry Gap. Together they cover the
+browser integration and the exact scheduling rule without a probabilistic E2E
+loop.
 
 The test finds controls primarily by their accessible label or role, such as
 `Norwegian Front` or the `Save Flashcard` button. This resembles how assistive
@@ -97,13 +98,15 @@ delays.
 
 Use a dedicated Vercel Preview deployment connected to a disposable Railway
 database. Do not point the test at the production learning collection: it calls
-OpenAI and permanently creates Source Text, Card Drafts, Flashcards, and Study
-Results.
+OpenAI and permanently creates Source Text, Card Draft, and Study Result audit
+records. Run-marked Flashcards are deleted by fixture teardown.
 
 Prepare the Preview environment and install Chromium once:
 
 ```bash
-vercel env run -e preview -- bun run release:prepare
+export RELEASE_DATABASE_URL='postgresql://user:password@host:port/database'
+bun run release:prepare
+unset RELEASE_DATABASE_URL
 bunx playwright install chromium
 ```
 
@@ -113,9 +116,10 @@ Then deploy the Preview and run:
 RELEASE_BASE_URL=https://your-preview.vercel.app bun run test:e2e:release
 ```
 
-A successful run ends with one passing `phone-chromium` test. Reset or replace
-the disposable database before repeated release runs if it has accumulated
-test cards.
+A successful run ends with one passing `phone-chromium` test and no run-marked
+Flashcards in the collection. Reset or replace the disposable database only
+when retained Source Text, Card Draft, or Study Result audit history is no
+longer useful.
 
 This test is intentionally excluded from `bun run test`. Normal continuous
 integration therefore needs neither a deployed URL nor live OpenAI access.
@@ -153,9 +157,9 @@ Both `test-results/` and `playwright-report/` are ignored by Git.
   `OPENAI_API_KEY`, `OPENAI_MODEL`, provider credit, and Vercel server logs.
 - **A database page fails**: run the release preparation command and verify that
   Preview uses Railway's public connection URL.
-- **The target card is not found within 80 positions**: reset the disposable
-  Preview database. A large pre-existing collection reduces the chance of any
-  particular card being selected quickly.
+- **Run-marked Flashcards remain after completion**: inspect the trace for a
+  cleanup failure and delete those cards through the collection UI before the
+  next run.
 - **A locator cannot find a button or field**: first inspect the trace. The UI's
   accessible label may have changed, in which case the test should be updated
   to match the wording a learner now sees.

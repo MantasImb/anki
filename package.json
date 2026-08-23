@@ -15,7 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "release:verify": "bun scripts/verify-deployment.ts",
-    "release:prepare": "bun run db:migrate && bun run release:verify"
+    "release:prepare": "bun scripts/prepare-release.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

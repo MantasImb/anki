@@ -2,6 +2,10 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  requireExpectedDatabaseObjects,
+  v1ExpectedDatabaseObjects,
+} from "./migration-readiness";
 
 describe("complete PostgreSQL migration history", () => {
   let client: PGlite | undefined;
@@ -37,6 +41,26 @@ describe("complete PostgreSQL migration history", () => {
         "source_texts",
         "study_results",
       ]);
+
+      const databaseObjects = await client.query<{ object_name: string }>(`
+        select 'base table: ' || table_name as object_name
+        from information_schema.tables
+        where table_schema = 'public' and table_type = 'BASE TABLE'
+        union all
+        select 'column: ' || table_name || '.' || column_name as object_name
+        from information_schema.columns
+        where table_schema = 'public'
+        union all
+        select 'constraint: ' || constraint_name as object_name
+        from information_schema.table_constraints
+        where table_schema = 'public'
+      `);
+      expect(() =>
+        requireExpectedDatabaseObjects(
+          v1ExpectedDatabaseObjects,
+          databaseObjects.rows.map(({ object_name }) => object_name),
+        ),
+      ).not.toThrow();
     },
     15_000,
   );

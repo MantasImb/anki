@@ -3,35 +3,35 @@ title: Create and study Norwegian flashcards from source text
 labels:
   - ready-for-agent
 prd: ../prd/norwegian-flashcards-v1.md
-status: open
+status: ready-for-release-qa
 ---
 
 # Create and study Norwegian flashcards from source text
 
 ## Summary
 
-Build the v1 single-Learner application described in the linked PRD. The Learner must be able to create Norwegian-to-English Flashcards manually or from reviewed, source-grounded LLM Card Drafts, then study them with a simple priority system that repeats difficult cards without immediate repetition.
+Build the v1 single-Learner application described in the linked PRD. The Learner must be able to create Norwegian-to-English Flashcards manually or from editable, source-grounded LLM Card Drafts, remove unwanted drafts, add everything remaining, then study with a simple priority system that repeats difficult cards without immediate repetition.
 
 ## Acceptance Criteria
 
-- [ ] The application runs as a responsive Next.js App Router experience suitable for phone and desktop.
-- [ ] The Learner can create, edit, list, and delete a Flashcard with a required Norwegian Front and English Back.
-- [ ] The Learner can paste chapter- or unit-sized Source Text and synchronously generate a complete Card Draft collection.
-- [ ] OpenAI is integrated behind the provider-neutral generation interface and returns strictly structured Front/Back pairs.
-- [ ] The Default Generation Template produces source-grounded selections and avoids unrelated material and duplicate drafts.
-- [ ] Customized Generation Instructions persist and can be reset to the bundled template.
-- [ ] A failed Generation Attempt creates no partial drafts, retains its Source Text, and can be retried.
-- [ ] The Learner can edit, approve, or reject each pending Card Draft.
-- [ ] Approving a Card Draft is idempotent, creates exactly one Flashcard, and preserves Source Text traceability.
-- [ ] Study shows the Front first, reveals the Back on request, and records Correct or Incorrect self-assessment.
-- [ ] Correct results increase Recall Streak to a maximum of three; Incorrect results reset it to zero.
-- [ ] Weighted selection favors lower-streak Flashcards while keeping three-streak Flashcards eligible.
-- [ ] An incorrectly answered Flashcard cannot return until three other Flashcards have been studied, with the documented tiny-collection fallback.
-- [ ] Flashcards, Source Texts, Card Drafts, Generation Instructions, Study Results, and Recall Streaks persist in PostgreSQL across devices.
-- [ ] Drizzle ORM remains inside the PostgreSQL adapter, with versioned Drizzle Kit migrations.
-- [ ] Database credentials and the OpenAI API key remain server-side in deployment configuration.
-- [ ] Retryable user-facing errors are concise, while diagnostic details are available in server logs.
-- [ ] The confirmed unit, workflow, adapter, persistence, and critical browser tests pass.
+- [x] The application runs as a responsive Next.js App Router experience suitable for phone and desktop.
+- [x] The Learner can create, edit, list, and delete a Flashcard with a required Norwegian Front and English Back.
+- [x] The Learner can paste chapter- or unit-sized Source Text and synchronously generate a complete Card Draft collection.
+- [x] OpenAI is integrated behind the provider-neutral generation interface and returns strictly structured Front/Back pairs.
+- [x] The Default Generation Template produces source-grounded selections and avoids unrelated material and duplicate drafts.
+- [x] Customized Generation Instructions persist and can be reset to the bundled template.
+- [x] A failed Generation Attempt creates no partial drafts, retains its Source Text, and can be retried.
+- [x] The Learner can edit or remove pending Card Drafts, then add every remaining draft in one action.
+- [x] Adding remaining Card Drafts is idempotent, creates exactly one Flashcard per draft, and preserves Source Text traceability.
+- [x] Study shows the Front first, reveals the Back on request, and records Correct or Incorrect self-assessment.
+- [x] Correct results increase Recall Streak to a maximum of three; Incorrect results reset it to zero.
+- [x] Weighted selection favors lower-streak Flashcards while keeping three-streak Flashcards eligible.
+- [x] An incorrectly answered Flashcard cannot return until three other Flashcards have been studied, with the documented tiny-collection fallback.
+- [x] Flashcards, Source Texts, Card Drafts, Generation Instructions, Study Results, and Recall Streaks use durable PostgreSQL persistence; cross-device behavior remains in final deployment QA.
+- [x] Drizzle ORM remains inside the PostgreSQL adapter, with versioned Drizzle Kit migrations.
+- [x] Database credentials and the OpenAI API key remain server-side in deployment configuration.
+- [x] Retryable user-facing errors are concise, while diagnostic details are available in server logs.
+- [x] The confirmed unit, workflow, adapter, and persistence tests pass; the critical browser test is ready for final Preview QA.
 - [ ] The application is smoke-tested against Railway PostgreSQL from its Vercel deployment.
 
 ## Module Breakdown
@@ -48,7 +48,7 @@ Build the v1 single-Learner application described in the linked PRD. The Learner
 - Test workflows against fake ports.
 - Contract-test the OpenAI adapter without live API calls.
 - Integration-test migrations, constraints, and transactions against PostgreSQL.
-- Exercise the critical generate, approve, and study flow at a phone-sized viewport.
+- Exercise the critical generate, edit, add-remaining, and study flow at a phone-sized viewport.
 
 ## References
 

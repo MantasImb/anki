@@ -8,7 +8,7 @@ I need one persistent personal study collection, without an account system, that
 
 ## Solution
 
-Provide a phone-friendly, single-Learner Next.js application with two Add Flashcard paths. The Learner may write a Norwegian Front and English Back manually, or paste Norwegian Source Text and synchronously generate source-grounded Card Drafts with an LLM. Generated drafts remain reviewable and editable until they are approved as Flashcards.
+Provide a phone-friendly, single-Learner Next.js application with two Add Flashcard paths. The Learner may write a Norwegian Front and English Back manually, or paste Norwegian Source Text and synchronously generate source-grounded Card Drafts with an LLM. Generated drafts are assumed useful by default: the Learner may edit or remove exceptions, then add every remaining draft to storage in one action.
 
 During study, the application shows the Norwegian Front, reveals the English Back on request, and records the Learner's Correct or Incorrect self-assessment. A simple scheduler favors cards with a lower Recall Streak. An Incorrect result resets the streak and gives the card higher priority after a three-card Retry Gap; three consecutive Correct results reduce its frequency without removing it from study.
 
@@ -25,7 +25,7 @@ All durable state is stored in PostgreSQL so the same material and progress are 
 7. As the Learner, I want to paste chapter- or unit-sized Norwegian Source Text, so that I can generate learning material without processing an entire book.
 8. As the Learner, I want the application to retain my Source Text, so that failed generation can be retried and generated cards remain traceable to their origin.
 9. As the Learner, I want the LLM to select useful Norwegian words, phrases, and short sentences from the Source Text, so that generated material focuses on learnable content.
-10. As the Learner, I want every generated Card Draft to contain one Norwegian Front and one English Back, so that approved drafts match the simple v1 Flashcard model.
+10. As the Learner, I want every generated Card Draft to contain one Norwegian Front and one English Back, so that stored generated cards match the simple v1 Flashcard model.
 11. As the Learner, I want generation to stay grounded in the supplied Source Text, so that unrelated facts or vocabulary are not introduced.
 12. As the Learner, I want generation to permit light normalization of Norwegian wording, so that a selected word or phrase can be useful outside its original sentence when appropriate.
 13. As the Learner, I want generated fronts to remain understandable outside their paragraph, so that I can study them independently.
@@ -35,12 +35,12 @@ All durable state is stored in PostgreSQL so the same material and progress are 
 17. As the Learner, I want a failed Generation Attempt to save no partial drafts, so that retrying does not create duplicate or incomplete output.
 18. As the Learner, I want failed Source Text to remain available for retry, so that a provider or network failure does not make me paste it again.
 19. As the Learner, I want provider failures, refusals, and incomplete responses presented as concise retryable errors, so that technical details do not interrupt studying.
-20. As the Learner, I want to review generated Card Drafts before they become Flashcards, so that LLM output is never trusted automatically.
+20. As the Learner, I want to inspect generated Card Drafts before they become Flashcards, so that I can remove or correct exceptions.
 21. As the Learner, I want to edit the Front or Back of a pending Card Draft, so that I can correct a useful but imperfect suggestion.
-22. As the Learner, I want to approve a Card Draft, so that it becomes exactly one studyable Flashcard.
-23. As the Learner, I want repeated approval submissions to remain idempotent, so that double taps or retries cannot create duplicate Flashcards.
-24. As the Learner, I want to reject a Card Draft, so that irrelevant or incorrect output never enters study.
-25. As the Learner, I want approved Flashcards to retain their relationship to the originating Source Text, so that generated material remains traceable.
+22. As the Learner, I want one action to add every remaining Card Draft, so that confirming a mostly correct generated collection is fast.
+23. As the Learner, I want repeated add submissions to remain idempotent, so that double taps or retries cannot create duplicate Flashcards.
+24. As the Learner, I want to remove a Card Draft, so that irrelevant or incorrect output never enters study.
+25. As the Learner, I want stored generated Flashcards to retain their relationship to the originating Source Text, so that generated material remains traceable.
 26. As the Learner, I want to inspect and edit the Generation Instructions in the application, so that I can influence what the LLM selects.
 27. As the Learner, I want customized Generation Instructions reused for future Generation Attempts, so that I do not repeat the same customization.
 28. As the Learner, I want to reset Generation Instructions to the bundled Default Generation Template, so that experiments are always reversible.
@@ -84,7 +84,7 @@ All durable state is stored in PostgreSQL so the same material and progress are 
 - Drizzle ORM provides typed PostgreSQL access within the adapter, and Drizzle Kit provides versioned migrations.
 - The persistence schema contains Source Texts with generation status, Card Drafts with review status, Flashcards with a zero-to-three Recall Streak, append-only Study Results, and a singleton Generation Instructions setting.
 - A manually created Flashcard has no Source Text. A Flashcard created from an approved Card Draft preserves its Source Text relationship.
-- Card Draft status transitions from pending to approved or rejected. Approval creates exactly one Flashcard and records the association in one transaction.
+- Card Draft status transitions from pending to approved or rejected. Adding the remaining collection approves each pending draft, creates exactly one Flashcard per draft, and records every association transactionally. Removing a draft records it as rejected.
 - Source Text generation status distinguishes content ready to generate, successfully completed content, and failed content available for retry.
 - A successful Generation Attempt saves its entire collection in one transaction. A failure saves no partial collection.
 - The Default Generation Template is version-controlled with the application. The persisted customization is initialized from or reset to that template.
@@ -103,10 +103,10 @@ All durable state is stored in PostgreSQL so the same material and progress are 
 - The Generation Boundary receives contract tests that every adapter must satisfy. The OpenAI adapter is exercised with mocked or recorded structured responses for success, refusal, malformed or incomplete output, timeout, and provider error behavior.
 - Automated tests do not call the live OpenAI API during normal local or continuous-integration runs. This keeps tests deterministic and avoids cost and credential requirements.
 - The Persistence Boundary receives PostgreSQL integration tests after applying real Drizzle migrations. Tests cover constraints, relationships, transactions, cascades, singleton settings, source retention, idempotent approval, and concurrent duplicate submissions.
-- The Next.js interface receives one critical end-to-end test at a phone-sized viewport: paste Source Text, generate drafts, edit and approve one draft, study the Flashcard, mark it Incorrect, and verify that three alternatives appear before it is eligible again.
+- The Next.js interface receives one critical end-to-end test at a phone-sized viewport: paste Source Text, generate drafts, edit one draft, add the remaining collection, begin study, mark a card Incorrect, and verify that three alternative positions appear. The deterministic scheduler test verifies that the incorrect card becomes eligible immediately after that Retry Gap; the browser test does not wait on random weighted reselection.
 - Additional interface tests cover manual creation validation, retryable generation failure, editing and deleting a Flashcard, and reset of Generation Instructions when these behaviors cannot be covered more cheaply below the browser layer.
 - Deployment verification includes applying migrations to a clean database and smoke-testing manual creation, generated creation, draft review, and study through the deployed application.
-- The repository currently has no implementation or test suite, so there is no code-level testing prior art to preserve. The domain glossary, ADRs, and v1 implementation plan are the authoritative behavioral prior art.
+- The domain glossary, ADRs, PRD, implementation plan, and behavior-focused test suite are the authoritative v1 prior art for future changes.
 
 ## Out of Scope
 
@@ -124,7 +124,7 @@ All durable state is stored in PostgreSQL so the same material and progress are 
 
 ## Further Notes
 
-- Repository fact: this is a greenfield project with domain documentation and architectural decisions but no application code or tests.
+- Repository fact: v1 is implemented as a Next.js application with domain, workflow, adapter, persistence, interface, and release-browser tests.
 - Conversation fact: the application serves one Learner preparing with Norwegian taxi-driver curriculum material, while the product model remains general enough for other Norwegian Source Text.
 - Conversation fact: the Learner explicitly accepts the publicly reachable generated Vercel URL for v1.
 - Explicit assumption: visual styling and component-library choices are reversible implementation details and are not fixed by this PRD.
