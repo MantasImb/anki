@@ -1,6 +1,6 @@
 # Norwegian Learning
 
-This context supports manually written flashcards and turns Norwegian source text into reviewable card drafts that a learner can approve for study.
+This context supports manually written flashcards and turns Norwegian source text into editable card drafts that a learner can remove selectively and add to study as a remaining collection.
 
 ## Language
 
@@ -15,7 +15,7 @@ Norwegian text, typically a chapter or curriculum unit rather than an entire boo
 A single request that applies the current generation instructions to one source text to create a complete collection of card drafts.
 
 **Card Draft**:
-An LLM-proposed front and back that must be reviewed before it can become a flashcard.
+An LLM-proposed front and back that remains editable or removable until the learner adds the remaining generated collection.
 _Avoid_: Generated flashcard
 
 **Generation Instructions**:
@@ -45,7 +45,7 @@ The three other flashcards that must be studied after an incorrect result before
 
 ## Relationships
 
-- The **Learner** supplies **Source Text**, reviews **Card Drafts**, and studies **Flashcards**.
+- The **Learner** supplies **Source Text**, manages **Card Drafts**, and studies **Flashcards**.
 - All **Source Text**, **Card Drafts**, **Flashcards**, and **Study Results** belong to the single **Learner**.
 - The **Add Flashcard** workflow accepts either manually entered card content or **Source Text**.
 - Manually entered card content creates one **Flashcard** immediately.
@@ -63,8 +63,8 @@ The three other flashcards that must be studied after an incorrect result before
 - A failed **Generation Attempt** creates no partial **Card Drafts** and leaves the **Source Text** available to retry.
 - A **Card Draft** is derived from exactly one **Source Text**.
 - A **Card Draft** proposes exactly one Norwegian **Front** and one English **Back**.
-- An approved **Card Draft** becomes exactly one **Flashcard**.
-- A **Flashcard** created from an approved **Card Draft** retains its relationship to the originating **Source Text**.
+- Each remaining **Card Draft** becomes exactly one **Flashcard** when the learner adds the generated collection.
+- A **Flashcard** created from a **Card Draft** retains its relationship to the originating **Source Text**.
 - A manually created **Flashcard** has no originating **Source Text**.
 - A **Flashcard** has exactly one **Front** and exactly one **Back**.
 - To study a **Flashcard**, the **Learner** considers the **Front**, reveals the **Back**, and marks the answer correct or incorrect.
@@ -81,11 +81,11 @@ The three other flashcards that must be studied after an incorrect result before
 ## Example dialogue
 
 > **Developer:** “Does the learner need to write every **Flashcard** manually?”
-> **Domain expert:** “No. The learner can enter it manually or provide **Source Text**. Generated **Card Drafts** must be reviewed before they become **Flashcards**.”
+> **Domain expert:** “No. The learner can enter it manually or provide **Source Text**. Generated **Card Drafts** can be edited or removed before the learner adds everything that remains.”
 
 ## Flagged ambiguities
 
-- “Add flashcard” names the overall entry workflow; LLM-generated content remains a **Card Draft** until the learner approves it.
+- “Add flashcard” names the overall entry workflow; LLM-generated content remains a **Card Draft** until the learner adds the remaining generated collection.
 - “Draft” applies only to LLM-generated content; manually entered content becomes a **Flashcard** when saved.
 - A separate “Learning Item” abstraction is deliberately deferred; the current domain model uses a simple two-sided **Flashcard**.
 - Quizzing is outside v1 and has no defined domain behavior yet.

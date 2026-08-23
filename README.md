@@ -97,6 +97,51 @@ Add the same variables to the application's protected deployment environment:
 Apply migrations to the production database before using a deployment. Do not
 expose either credential to browser code.
 
+Set these values in Vercel's **Preview** and **Production** environments as
+appropriate. Never create `NEXT_PUBLIC_DATABASE_URL` or
+`NEXT_PUBLIC_OPENAI_API_KEY`; Phase 8 startup validation rejects those names so
+credentials cannot be bundled for browser use.
+
+The generated Vercel URL is publicly reachable. V1 intentionally has no
+accounts, authorization, or Vercel Deployment Protection, so do not store
+material that should not be visible to someone who obtains the URL.
+
+### Release preparation
+
+Release preparation deliberately ignores the ordinary `DATABASE_URL` when
+choosing its migration target. Set the exact database URL as
+`RELEASE_DATABASE_URL` in the ignored local `.env` file:
+
+```dotenv
+RELEASE_DATABASE_URL=postgresql://user:password@host:port/database
+```
+
+Then run `bun run release:prepare`. Alternatively, export the variable only for
+the current shell. Copy the URL directly from the Railway service you intend to
+release and do not route this migration through `vercel env run`.
+The command prints only the credential-free `host:port/database` identity,
+applies every unapplied migration, verifies every checked-in migration against
+Drizzle's database journal, and checks required base tables, columns, and
+constraints. It does not call OpenAI, but it verifies that the API key and
+configurable model are present.
+Application startup performs the same application configuration validation and
+fails with the offending variable name without printing its value.
+
+Use a separate disposable Railway database for Vercel Preview. The automated
+phone journey invokes the configured OpenAI provider. Its fixture deletes the
+run-marked Flashcards afterward, including after an assertion failure, while
+Source Text, Card Draft, and Study Result audit records remain durable:
+
+```bash
+bunx playwright install chromium
+RELEASE_BASE_URL=https://your-preview.vercel.app bun run test:e2e:release
+```
+
+The full provisioning, phone/desktop validation, safe-log checks, and manual
+smoke test are in [`docs/release-checklist.md`](docs/release-checklist.md). A
+beginner-friendly explanation of the browser test is in
+[`docs/playwright-release-test.md`](docs/playwright-release-test.md).
+
 The Phase 6 migrations create append-only Study Results, preserve that history
 when a Flashcard is deleted, and constrain Recall Streaks to the supported
 zero-through-three range. Run `bun run db:migrate` after pulling this phase
@@ -119,5 +164,8 @@ bun run lint
 bun run test
 bun run build
 ```
+
+These normal checks do not make live OpenAI requests. The opt-in deployed
+release journey is deliberately separate under `test:e2e:release`.
 
 Product requirements and architectural decisions live in [`docs/`](docs/). The phased delivery plan is in [`plans/norwegian-flashcards-v1.md`](plans/norwegian-flashcards-v1.md).

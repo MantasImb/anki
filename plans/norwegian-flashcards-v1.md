@@ -2,9 +2,13 @@
 
 > Source PRD: [Norwegian Flashcards v1](../docs/prd/norwegian-flashcards-v1.md)
 
+## Completion status
+
+Phases 1–7 are implemented and covered by the v1 automated test suite. Phase 8 code and release tooling are complete; final Preview/Production deployment QA remains intentionally open in [`../docs/release-checklist.md`](../docs/release-checklist.md). The unchecked boxes below are the original planning criteria, while this status paragraph and the release checklist record completion.
+
 ## Evidence and assumptions
 
-- **Repository fact**: the repository is greenfield and currently contains product documentation, a domain glossary, ADRs, and an issue, but no application code, routes, database schema, or tests.
+- **Repository fact**: v1 now contains the Next.js routes, PostgreSQL schema and migrations, provider adapter, release tooling, and layered automated tests described by this plan.
 - **PRD requirement**: the product serves one implicit Learner and stores one shared personal collection without accounts or per-user ownership.
 - **PRD requirement**: v1 must work from phone and desktop through a Vercel deployment and Railway PostgreSQL.
 - **Planning inference**: the initial routes below provide stable user-facing entry points. Their internal component organization remains an implementation detail.
@@ -15,14 +19,14 @@
 Durable decisions that apply across all phases:
 
 - **Application**: Next.js 16 App Router with TypeScript on the Node.js runtime. Server Components read application state; Server Actions handle Learner-triggered mutations. Route Handlers remain deferred until an external HTTP consumer exists.
-- **Routes**: `/` is the small dashboard; `/cards` browses the collection; `/cards/new` provides manual entry; `/generate` accepts Source Text; `/sources/{id}/drafts` reviews generated Card Drafts; `/study` runs study sessions; `/settings/generation` manages Generation Instructions.
+- **Routes**: `/` is the small dashboard; `/cards` browses the collection; `/cards/new` provides manual entry; `/generate` accepts Source Text; `/sources/{id}/drafts` edits, removes, and adds generated Card Drafts; `/study` runs study sessions; `/settings/generation` manages Generation Instructions.
 - **Schema**: PostgreSQL stores Source Texts and generation status, Card Drafts and review status, Flashcards and Recall Streak, append-only Study Results, and singleton Generation Instructions.
 - **Key states**: Source Text moves through ready, completed, or failed generation status. Card Draft moves from pending to approved or rejected. Recall Streak is an integer from zero through three.
 - **Persistence boundary**: application behavior depends on repository contracts. Drizzle ORM and Drizzle Kit stay inside the Railway PostgreSQL adapter.
 - **Generation boundary**: application behavior depends on a provider-neutral generator that accepts Source Text and Generation Instructions and returns a complete structured Card Draft collection. OpenAI is the first adapter and uses Structured Outputs.
 - **Study behavior**: Correct increments Recall Streak to a maximum of three; Incorrect resets it to zero. Relative selection weights begin at four, three, two, and one for streaks zero through three.
 - **Retry behavior**: an Incorrect Flashcard is excluded until three other Flashcards have been studied. The Retry Gap is session state; persisted Recall Streak still prioritizes the card after a refresh.
-- **Consistency**: successful generation saves a complete collection atomically; failed generation saves no partial drafts. Draft approval is idempotent. Study Result insertion and Recall Streak update occur together.
+- **Consistency**: successful generation saves a complete collection atomically; failed generation saves no partial drafts. Adding the remaining drafts is idempotent. Study Result insertion and Recall Streak update occur together.
 - **Authentication**: there are no accounts or access checks in v1. The generated Vercel URL is publicly reachable, and that exposure is explicitly accepted.
 - **External services**: Vercel hosts the application, Railway hosts PostgreSQL behind its external database endpoint, and OpenAI provides initial generation. Secrets and model choice live in protected deployment configuration.
 - **Testing**: tests assert behavior at domain, application, adapter, persistence, and user-interface boundaries rather than private implementation structure. Normal automated tests never call the live OpenAI API.
@@ -122,18 +126,18 @@ Make generation safe to tune and retry. The Learner can edit persistent Generati
 
 ### What to build
 
-Complete the generated-content workflow. The Learner reviews pending Card Drafts, edits imperfect Fronts or Backs, approves useful drafts into Flashcards, and rejects unwanted drafts. Approval preserves Source Text traceability and remains safe under duplicate submissions.
+Complete the generated-content workflow. Generated Card Drafts are assumed useful by default. The Learner edits exceptions, removes unwanted drafts, and adds every remaining draft to Flashcards in one action. The bulk operation preserves Source Text traceability and remains safe under duplicate submissions.
 
 ### Acceptance criteria
 
-- [ ] Pending Card Drafts never appear in study or the Flashcard collection before approval.
+- [ ] Pending Card Drafts never appear in study or the Flashcard collection before the remaining collection is added.
 - [ ] The Learner can edit a pending Card Draft's Front and Back.
-- [ ] Approving a pending Card Draft creates exactly one immediately studyable Flashcard.
-- [ ] Approval marks the Card Draft approved and links it to the created Flashcard in one transaction.
-- [ ] Repeating an approval request cannot create a duplicate Flashcard.
-- [ ] The approved Flashcard retains its originating Source Text relationship.
-- [ ] Rejecting a pending Card Draft marks it rejected and creates no Flashcard.
-- [ ] Workflow and PostgreSQL integration tests cover editing, approval, duplicate approval, rejection, and traceability.
+- [ ] One action adds every remaining Card Draft as exactly one immediately studyable Flashcard.
+- [ ] The operation marks each remaining Card Draft approved and links it to the created Flashcard transactionally.
+- [ ] Repeating the add request cannot create duplicate Flashcards.
+- [ ] Every stored generated Flashcard retains its originating Source Text relationship.
+- [ ] Removing a pending Card Draft marks it rejected and creates no Flashcard.
+- [ ] Workflow and PostgreSQL integration tests cover editing, bulk addition, duplicate submission, removal, and traceability.
 - [ ] A phone-sized review screen makes each draft's current state and available action clear.
 
 ---
@@ -190,17 +194,17 @@ Replace basic card selection with the complete v1 scheduler. Eligible Flashcards
 
 ### What to build
 
-Validate the full production tracer bullet on the actual hosting topology. Starting from a phone, the Learner pastes one curriculum unit, receives and reviews source-grounded drafts, approves a Flashcard, studies it, records an Incorrect result, and observes the three-card Retry Gap. Close operational gaps discovered by this journey without expanding v1 scope.
+Validate the full production tracer bullet on the actual hosting topology. Starting from a phone, the Learner pastes one curriculum unit, receives source-grounded drafts, edits or removes exceptions, adds every remaining draft, begins studying, records an Incorrect result, and observes the three-card Retry Gap. Close operational gaps discovered by this journey without expanding v1 scope.
 
 ### Acceptance criteria
 
-- [ ] A clean Railway PostgreSQL database can be created by applying the complete migration history.
+- [x] A clean PostgreSQL database can be created by applying the complete migration history; Railway execution remains in final deployment QA.
 - [ ] Vercel is configured with the external Railway database URL, OpenAI API key, and configurable model without exposing values to browser code or source control.
-- [ ] Missing or invalid deployment configuration fails clearly before a Learner workflow silently loses data.
-- [ ] The generated Vercel URL is documented as public, and no unplanned account or access-control behavior is introduced.
-- [ ] Server logs contain actionable database and generation failure context without Source Text, credentials, or provider secrets being unnecessarily exposed.
-- [ ] The phone-sized end-to-end test covers Source Text generation, draft editing, approval, study, Incorrect assessment, three alternatives, and eligible return.
+- [x] Missing or invalid deployment configuration fails clearly before a Learner workflow silently loses data.
+- [x] The generated Vercel URL is documented as public, and no unplanned account or access-control behavior is introduced.
+- [x] Server diagnostics contain actionable database and generation failure context without Source Text, credentials, or provider secrets being unnecessarily exposed; deployed-log inspection remains in final QA.
+- [x] The phone-sized end-to-end test covers Source Text generation, draft editing, bulk addition, study, Incorrect assessment, and three alternative positions; deterministic scheduler tests prove eligible return immediately afterward.
 - [ ] Smoke tests on the deployed application cover manual creation, editing, deletion, generation retry, settings reset, draft rejection, and persisted study progress.
-- [ ] Normal continuous-integration tests complete without live OpenAI access.
-- [ ] Initial schema changes remain additive enough for application rollback during the v1 rollout.
+- [x] Normal continuous-integration tests complete without live OpenAI access.
+- [x] Initial schema changes remain additive enough for application rollback during the v1 rollout.
 - [ ] The PRD success criterion is demonstrably satisfied from both phone and desktop against the same durable data.

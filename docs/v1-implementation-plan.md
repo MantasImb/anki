@@ -9,7 +9,7 @@ Build a phone-friendly, single-learner Next.js application that creates Norwegia
 - Create, edit, list, and delete simple two-sided flashcards.
 - Paste a chapter- or unit-sized Norwegian source text.
 - Generate source-grounded Norwegian fronts and English backs with OpenAI.
-- Review, edit, approve, or reject generated card drafts.
+- Edit or remove generated card drafts, then add everything remaining in one action.
 - View and customize persistent generation instructions, with a reset to the bundled template.
 - Study one card at a time by revealing the back and marking the answer correct or incorrect.
 - Persist cards, source texts, drafts, settings, and study results in PostgreSQL.
@@ -29,7 +29,7 @@ Build a phone-friendly, single-learner Next.js application that creates Norwegia
 
 - Next.js 16 App Router with TypeScript, deployed on Vercel using the Node.js runtime.
 - Server Components read application state through application services.
-- Server Actions handle UI-triggered mutations such as card editing, draft approval, study results, settings updates, and synchronous generation.
+- Server Actions handle UI-triggered mutations such as card editing, removing drafts, adding remaining drafts, study results, settings updates, and synchronous generation.
 - Route Handlers are deferred until an external caller or webhook creates a real HTTP API requirement.
 - PostgreSQL runs on Railway and is reached from Vercel through Railway's public database endpoint.
 - Drizzle ORM and Drizzle Kit live inside the PostgreSQL adapter and own typed queries and migrations.
@@ -54,7 +54,7 @@ Application behavior depends on repository interfaces rather than Drizzle. The P
 - Append-only study results.
 - The learner's customized generation instructions.
 
-Transactions keep multi-record changes atomic, especially draft approval and recording a study result together with its updated recall streak.
+Transactions keep multi-record changes atomic, especially adding remaining drafts and recording a study result together with its updated recall streak.
 
 ## Data model
 
@@ -63,7 +63,7 @@ Transactions keep multi-record changes atomic, especially draft approval and rec
 - Identifier.
 - Original Norwegian content.
 - Generation status: ready, completed, or failed.
-- Creation and update timestamps.
+- Creation timestamp.
 
 ### `card_drafts`
 
@@ -73,7 +73,7 @@ Transactions keep multi-record changes atomic, especially draft approval and rec
 - English back.
 - Review status: pending, approved, or rejected.
 - Optional reference to the approved flashcard.
-- Creation and update timestamps.
+- Position and creation timestamp.
 
 ### `flashcards`
 
@@ -82,7 +82,7 @@ Transactions keep multi-record changes atomic, especially draft approval and rec
 - Norwegian front.
 - English back.
 - Consecutive-correct recall streak from zero through three.
-- Creation and update timestamps.
+- Creation timestamp.
 
 ### `study_results`
 
@@ -91,7 +91,7 @@ Transactions keep multi-record changes atomic, especially draft approval and rec
 - Correct or incorrect outcome.
 - Timestamp.
 
-### `generation_settings`
+### `generation_instructions`
 
 - Singleton identifier.
 - Customized generation instructions.
@@ -113,8 +113,8 @@ The default generation template remains version-controlled in the application. R
 2. The application saves the source text before calling the generator.
 3. A synchronous generation attempt returns a complete structured draft collection.
 4. The application saves all drafts atomically and opens the review screen.
-5. The learner edits, approves, or rejects each draft.
-6. Approving a draft atomically creates its flashcard and marks the draft approved.
+5. The learner edits useful exceptions or removes unwanted drafts.
+6. One action atomically adds every remaining draft as exactly one flashcard and marks those drafts approved.
 
 If generation fails, no partial drafts are saved. The source text is marked failed and remains available for retry.
 
@@ -148,7 +148,7 @@ The learner can customize and persist these instructions. Reset restores the bun
 - Validate empty or unreasonably large source text before calling the provider; the exact size limit is a configurable guardrail.
 - Preserve source text on generation timeouts, provider errors, refusals, or malformed/incomplete responses.
 - Never save a partial generated collection.
-- Make draft approval idempotent so repeated submission cannot create duplicate flashcards.
+- Make adding remaining drafts idempotent so repeated submission cannot create duplicate flashcards.
 - Treat missing or invalid database and provider configuration as a deployment error, not a client-visible detail.
 - Show concise retryable errors in the UI and retain diagnostic detail in server logs.
 
@@ -157,21 +157,21 @@ The learner can customize and persist these instructions. Reset restores the bun
 - Unit-test the scheduler with deterministic randomness, including streak weights, incorrect resets, the three-card Retry Gap, and tiny decks.
 - Unit-test the default generation template and reset behavior.
 - Contract-test application services against fake persistence and generator implementations.
-- Integration-test the Drizzle adapter against PostgreSQL, including migrations, transactions, cascades, and idempotent approval.
+- Integration-test the Drizzle adapter against PostgreSQL, including migrations, transactions, cascades, and idempotent bulk addition.
 - Test the OpenAI adapter with recorded or mocked structured responses; live API calls are excluded from normal automated tests.
-- Cover the critical phone-sized workflow: generate drafts, approve one, study it, record an incorrect result, and observe the Retry Gap.
+- Cover the critical phone-sized workflow: generate drafts, edit one, add the remaining collection, begin study, record an incorrect result, and observe three alternative positions. Prove deterministic eligibility after the Retry Gap in the scheduler test rather than waiting on random browser reselection.
 
 ## Deployment and rollout
 
 1. Provision PostgreSQL on Railway and enable its external connection endpoint.
 2. Configure Vercel with the Railway database URL, OpenAI API key, and configurable OpenAI model.
-3. Apply Drizzle migrations before serving application code that requires them.
+3. Apply Drizzle migrations with an explicit release-only database URL and print its credential-free database identity before serving application code that requires them.
 4. Deploy the Next.js application to Vercel's generated URL.
-5. Verify manual creation, generation, draft approval, and study from a phone.
+5. Verify manual creation, generation, editing or removing drafts, adding the remaining collection, and study from a phone.
 6. Keep initial migrations additive so application rollback remains possible.
 
 The generated Vercel URL is public by default. The single learner explicitly accepts this exposure for v1; access protection remains deferred.
 
 ## Success criteria
 
-V1 is successful when the learner can paste one curriculum unit on desktop or phone, receive editable source-grounded drafts, approve useful cards, and complete a study session in which incorrect cards return after three alternatives and mastered cards appear less often, with all state preserved across devices.
+V1 is successful when the learner can paste one curriculum unit on desktop or phone, receive editable source-grounded drafts, remove exceptions, add everything remaining, and complete a study session in which incorrect cards return after three alternatives and mastered cards appear less often, with all state preserved across devices.
