@@ -5,8 +5,47 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
+
+export const flashcardDecks = pgTable(
+  "flashcard_decks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "flashcard_decks_name_not_blank",
+      sql`length(regexp_replace(${table.name}, '[[:space:]]', '', 'g')) > 0`,
+    ),
+    unique("flashcard_decks_name_key_unique").on(table.nameKey),
+  ],
+);
+
+export const quizzes = pgTable(
+  "quizzes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "quizzes_name_not_blank",
+      sql`length(regexp_replace(${table.name}, '[[:space:]]', '', 'g')) > 0`,
+    ),
+    unique("quizzes_name_key_unique").on(table.nameKey),
+  ],
+);
 
 export const sourceTexts = pgTable(
   "source_texts",

@@ -3,15 +3,17 @@ export type ExpectedMigration = {
   when: number;
 };
 
-const v1Tables = [
+const tables = [
   "card_drafts",
+  "flashcard_decks",
   "flashcards",
   "generation_instructions",
+  "quizzes",
   "source_texts",
   "study_results",
 ] as const;
 
-const v1Columns = {
+const columns = {
   card_drafts: [
     "id",
     "source_text_id",
@@ -22,6 +24,7 @@ const v1Columns = {
     "approved_flashcard_id",
     "created_at",
   ],
+  flashcard_decks: ["id", "name", "name_key", "created_at"],
   flashcards: [
     "id",
     "source_text_id",
@@ -31,33 +34,38 @@ const v1Columns = {
     "created_at",
   ],
   generation_instructions: ["id", "instructions", "updated_at"],
+  quizzes: ["id", "name", "name_key", "created_at"],
   source_texts: ["id", "content", "generation_status", "created_at"],
   study_results: ["id", "flashcard_id", "assessment", "created_at"],
 } as const;
 
-const v1Constraints = [
+const constraints = [
   "card_drafts_approved_flashcard_id_flashcards_id_fk",
   "card_drafts_approved_flashcard_id_unique",
   "card_drafts_back_not_blank",
   "card_drafts_front_not_blank",
   "card_drafts_review_status_valid",
   "card_drafts_source_text_id_source_texts_id_fk",
+  "flashcard_decks_name_key_unique",
+  "flashcard_decks_name_not_blank",
   "flashcards_back_not_blank",
   "flashcards_front_not_blank",
   "flashcards_recall_streak_valid",
   "flashcards_source_text_id_source_texts_id_fk",
+  "quizzes_name_key_unique",
+  "quizzes_name_not_blank",
   "source_texts_content_not_blank",
   "source_texts_generation_status_valid",
   "study_results_assessment_valid",
   "study_results_flashcard_id_flashcards_id_fk",
 ] as const;
 
-export const v1ExpectedDatabaseObjects = [
-  ...v1Tables.map((table) => `base table: ${table}`),
-  ...Object.entries(v1Columns).flatMap(([table, columns]) =>
-    columns.map((column) => `column: ${table}.${column}`),
+export const expectedDatabaseObjects = [
+  ...tables.map((table) => `base table: ${table}`),
+  ...Object.entries(columns).flatMap(([table, tableColumns]) =>
+    tableColumns.map((column) => `column: ${table}.${column}`),
   ),
-  ...v1Constraints.map((constraint) => `constraint: ${constraint}`),
+  ...constraints.map((constraint) => `constraint: ${constraint}`),
 ];
 
 export function requireCompleteMigrationHistory(

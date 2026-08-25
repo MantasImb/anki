@@ -7,7 +7,7 @@ import {
   requireCompleteMigrationHistory,
   requireExpectedDatabaseObjects,
   type ExpectedMigration,
-  v1ExpectedDatabaseObjects,
+  expectedDatabaseObjects,
 } from "../src/adapters/persistence/postgres/migration-readiness";
 
 async function readExpectedMigrations() {
@@ -44,7 +44,7 @@ export async function verifyDeployment() {
       where table_schema = 'public'
     `;
     requireExpectedDatabaseObjects(
-      v1ExpectedDatabaseObjects,
+      expectedDatabaseObjects,
       objectRows.map(({ object_name }) => object_name),
     );
 

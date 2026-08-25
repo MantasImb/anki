@@ -50,6 +50,20 @@
       "when": 1786298225413,
       "tag": "0006_tough_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787649854570,
+      "tag": "0007_mysterious_slayback",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787649947406,
+      "tag": "0008_spooky_pandemic",
+      "breakpoints": true
     }
   ]
 }
