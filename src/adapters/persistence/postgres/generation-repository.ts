@@ -18,12 +18,13 @@ export function createDrizzleGenerationRepository<
   TResult extends PgQueryResultHKT,
 >(database: PgDatabase<TResult, typeof schema>): GenerationRepository {
   return {
-    async createSource(content: string): Promise<SourceText> {
+    async createSource(deckId: string, content: string): Promise<SourceText> {
       const [created] = await database
         .insert(schema.sourceTexts)
-        .values({ content })
+        .values({ deckId, content })
         .returning({
           id: schema.sourceTexts.id,
+          deckId: schema.sourceTexts.deckId,
           content: schema.sourceTexts.content,
           generationStatus: schema.sourceTexts.generationStatus,
         });
@@ -32,6 +33,7 @@ export function createDrizzleGenerationRepository<
     },
 
     async claimFailedSource(
+      deckId: string,
       sourceTextId: string,
     ): Promise<SourceText | undefined> {
       if (!isUuid(sourceTextId)) {
@@ -44,11 +46,13 @@ export function createDrizzleGenerationRepository<
         .where(
           and(
             eq(schema.sourceTexts.id, sourceTextId),
+            eq(schema.sourceTexts.deckId, deckId),
             eq(schema.sourceTexts.generationStatus, "failed"),
           ),
         )
         .returning({
           id: schema.sourceTexts.id,
+          deckId: schema.sourceTexts.deckId,
           content: schema.sourceTexts.content,
           generationStatus: schema.sourceTexts.generationStatus,
         });
@@ -56,25 +60,54 @@ export function createDrizzleGenerationRepository<
       return claimed;
     },
 
-    async failGeneration(sourceTextId: string): Promise<SourceWithDrafts> {
+    async failGeneration(
+      deckId: string,
+      sourceTextId: string,
+    ): Promise<SourceWithDrafts> {
       const [failed] = await database
         .update(schema.sourceTexts)
         .set({ generationStatus: "failed" })
-        .where(eq(schema.sourceTexts.id, sourceTextId))
+        .where(
+          and(
+            eq(schema.sourceTexts.id, sourceTextId),
+            eq(schema.sourceTexts.deckId, deckId),
+            eq(schema.sourceTexts.generationStatus, "ready"),
+          ),
+        )
         .returning({
           id: schema.sourceTexts.id,
+          deckId: schema.sourceTexts.deckId,
           content: schema.sourceTexts.content,
           generationStatus: schema.sourceTexts.generationStatus,
         });
-
+      if (!failed) throw new Error("Source Text was not found.");
       return { ...failed, drafts: [] };
     },
 
     completeGeneration(
+      deckId: string,
       sourceTextId: string,
       drafts: GeneratedCardDraft[],
     ): Promise<SourceWithDrafts> {
       return database.transaction(async (transaction) => {
+        const [completed] = await transaction
+          .update(schema.sourceTexts)
+          .set({ generationStatus: "completed" })
+          .where(
+            and(
+              eq(schema.sourceTexts.id, sourceTextId),
+              eq(schema.sourceTexts.deckId, deckId),
+              eq(schema.sourceTexts.generationStatus, "ready"),
+            ),
+          )
+          .returning({
+            id: schema.sourceTexts.id,
+            deckId: schema.sourceTexts.deckId,
+            content: schema.sourceTexts.content,
+            generationStatus: schema.sourceTexts.generationStatus,
+          });
+        if (!completed) throw new Error("Source Text was not found.");
+
         const createdDrafts = await transaction
           .insert(schema.cardDrafts)
           .values(
@@ -92,22 +125,12 @@ export function createDrizzleGenerationRepository<
             reviewStatus: schema.cardDrafts.reviewStatus,
             approvedFlashcardId: schema.cardDrafts.approvedFlashcardId,
           });
-
-        const [completed] = await transaction
-          .update(schema.sourceTexts)
-          .set({ generationStatus: "completed" })
-          .where(eq(schema.sourceTexts.id, sourceTextId))
-          .returning({
-            id: schema.sourceTexts.id,
-            content: schema.sourceTexts.content,
-            generationStatus: schema.sourceTexts.generationStatus,
-          });
-
         return { ...completed, drafts: createdDrafts };
       });
     },
 
     async getSourceWithDrafts(
+      deckId: string,
       id: string,
     ): Promise<SourceWithDrafts | undefined> {
       if (!isUuid(id)) {
@@ -117,11 +140,17 @@ export function createDrizzleGenerationRepository<
       const [source] = await database
         .select({
           id: schema.sourceTexts.id,
+          deckId: schema.sourceTexts.deckId,
           content: schema.sourceTexts.content,
           generationStatus: schema.sourceTexts.generationStatus,
         })
         .from(schema.sourceTexts)
-        .where(eq(schema.sourceTexts.id, id));
+        .where(
+          and(
+            eq(schema.sourceTexts.id, id),
+            eq(schema.sourceTexts.deckId, deckId),
+          ),
+        );
 
       if (!source) {
         return undefined;

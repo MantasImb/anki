@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { MemoryFlashcardRepository } from "../testing/memory-flashcard-repository";
-import { createFlashcardService } from "./flashcards";
+import { calculateDeckProgress, createFlashcardService } from "./flashcards";
+
+describe("Deck Progress", () => {
+  it("counts only Flashcards at Recall Streak three as Learned", () => {
+    expect(
+      calculateDeckProgress([
+        { id: "a", deckId: "deck-a", front: "a", back: "A", recallStreak: 3 },
+        { id: "b", deckId: "deck-a", front: "b", back: "B", recallStreak: 2 },
+      ]),
+    ).toEqual({ learned: 1, total: 2, percentage: 50 });
+  });
+});
 
 describe("manual Flashcard creation", () => {
   it("creates exactly one immediately studyable Flashcard", async () => {
@@ -9,12 +20,32 @@ describe("manual Flashcard creation", () => {
     );
 
     const created = await flashcards.create({
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
     });
 
-    expect(await flashcards.list()).toEqual([created]);
+    expect(await flashcards.list("deck-a")).toEqual([created]);
+    expect(created.deckId).toBe("deck-a");
     expect(created.recallStreak).toBe(0);
+  });
+
+  it("lists only Flashcards owned by the selected Deck", async () => {
+    const flashcards = createFlashcardService(
+      new MemoryFlashcardRepository(),
+    );
+    const selected = await flashcards.create({
+      deckId: "deck-a",
+      front: "høflig",
+      back: "polite",
+    });
+    await flashcards.create({
+      deckId: "deck-b",
+      front: "ledig",
+      back: "available",
+    });
+
+    expect(await flashcards.list("deck-a")).toEqual([selected]);
   });
 
   it("rejects a blank Front without changing the collection", async () => {
@@ -23,11 +54,11 @@ describe("manual Flashcard creation", () => {
     );
 
     await expect(
-      flashcards.create({ front: "   ", back: "I drive a taxi." }),
+      flashcards.create({ deckId: "deck-a", front: "   ", back: "I drive a taxi." }),
     ).rejects.toMatchObject({
       fieldErrors: { front: "Enter a Norwegian Front." },
     });
-    expect(await flashcards.list()).toEqual([]);
+    expect(await flashcards.list("deck-a")).toEqual([]);
   });
 
   it("rejects a blank Back without changing the collection", async () => {
@@ -36,11 +67,11 @@ describe("manual Flashcard creation", () => {
     );
 
     await expect(
-      flashcards.create({ front: "Jeg kjører drosje.", back: "\n" }),
+      flashcards.create({ deckId: "deck-a", front: "Jeg kjører drosje.", back: "\n" }),
     ).rejects.toMatchObject({
       fieldErrors: { back: "Enter an English Back." },
     });
-    expect(await flashcards.list()).toEqual([]);
+    expect(await flashcards.list("deck-a")).toEqual([]);
   });
 });
 
@@ -50,11 +81,12 @@ describe("Flashcard maintenance", () => {
       new MemoryFlashcardRepository(),
     );
     const created = await flashcards.create({
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
     });
 
-    expect(await flashcards.get(created.id)).toEqual(created);
+    expect(await flashcards.get("deck-a", created.id)).toEqual(created);
   });
 
   it("updates the existing Flashcard instead of creating another", async () => {
@@ -62,11 +94,12 @@ describe("Flashcard maintenance", () => {
       new MemoryFlashcardRepository(),
     );
     const created = await flashcards.create({
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
     });
 
-    const updated = await flashcards.update(created.id, {
+    const updated = await flashcards.update("deck-a", created.id, {
       front: "Jeg kjører taxi.",
       back: "I drive a cab.",
     });
@@ -76,7 +109,26 @@ describe("Flashcard maintenance", () => {
       front: "Jeg kjører taxi.",
       back: "I drive a cab.",
     });
-    expect(await flashcards.list()).toEqual([updated]);
+    expect(await flashcards.list("deck-a")).toEqual([updated]);
+  });
+
+  it("does not edit a Flashcard through a different Deck", async () => {
+    const flashcards = createFlashcardService(
+      new MemoryFlashcardRepository(),
+    );
+    const created = await flashcards.create({
+      deckId: "deck-a",
+      front: "Jeg kjører drosje.",
+      back: "I drive a taxi.",
+    });
+
+    await expect(
+      flashcards.update("deck-b", created.id, {
+        front: "Jeg kjører taxi.",
+        back: "I drive a cab.",
+      }),
+    ).rejects.toMatchObject({ name: "FlashcardNotFoundError" });
+    expect(await flashcards.get("deck-a", created.id)).toEqual(created);
   });
 
   it("rejects invalid edits without changing the stored Flashcard", async () => {
@@ -84,16 +136,17 @@ describe("Flashcard maintenance", () => {
       new MemoryFlashcardRepository(),
     );
     const created = await flashcards.create({
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
     });
 
     await expect(
-      flashcards.update(created.id, { front: "\t", back: "I drive a cab." }),
+      flashcards.update("deck-a", created.id, { front: "\t", back: "I drive a cab." }),
     ).rejects.toMatchObject({
       fieldErrors: { front: "Enter a Norwegian Front." },
     });
-    expect(await flashcards.list()).toEqual([created]);
+    expect(await flashcards.list("deck-a")).toEqual([created]);
   });
 
   it("deletes an unwanted Flashcard", async () => {
@@ -101,13 +154,14 @@ describe("Flashcard maintenance", () => {
       new MemoryFlashcardRepository(),
     );
     const created = await flashcards.create({
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
     });
 
-    await flashcards.delete(created.id);
+    await flashcards.delete("deck-a", created.id);
 
-    expect(await flashcards.list()).toEqual([]);
+    expect(await flashcards.list("deck-a")).toEqual([]);
   });
 
   it("reports when an edited Flashcard no longer exists", async () => {
@@ -116,7 +170,7 @@ describe("Flashcard maintenance", () => {
     );
 
     await expect(
-      flashcards.update("missing-card", {
+      flashcards.update("deck-a", "missing-card", {
         front: "Jeg kjører taxi.",
         back: "I drive a cab.",
       }),
@@ -128,7 +182,7 @@ describe("Flashcard maintenance", () => {
       new MemoryFlashcardRepository(),
     );
 
-    await expect(flashcards.delete("missing-card")).rejects.toMatchObject({
+    await expect(flashcards.delete("deck-a", "missing-card")).rejects.toMatchObject({
       name: "FlashcardNotFoundError",
     });
   });

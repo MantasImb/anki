@@ -20,6 +20,7 @@ describe("Card Draft review", () => {
         addAction={addRemaining}
         source={{
           id: "source-1",
+          deckId: "deck-a",
           content: "Drosjesjåføren skal opptre høflig.",
           generationStatus: "completed",
           drafts: [
@@ -83,6 +84,7 @@ describe("Card Draft review", () => {
         addAction={async () => {}}
         source={{
           id: "source-1",
+          deckId: "deck-a",
           content: "Drosjesjåføren skal opptre høflig.",
           generationStatus: "completed",
           drafts: [

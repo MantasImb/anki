@@ -8,13 +8,18 @@ import {
 } from "@/interface/generate-card-drafts";
 
 export async function generateCardDrafts(
+  deckId: string,
   _previousState: GenerationFormState,
   formData: FormData,
 ): Promise<GenerationFormState> {
-  const state = await submitGenerationForm(getGenerationService(), formData);
+  const state = await submitGenerationForm(
+    getGenerationService(),
+    deckId,
+    formData,
+  );
 
   if (state.status === "generated" || state.status === "failed") {
-    redirect(`/sources/${state.sourceTextId}/drafts`);
+    redirect(`/decks/${deckId}/sources/${state.sourceTextId}/drafts`);
   }
 
   return state;

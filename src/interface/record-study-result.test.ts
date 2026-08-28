@@ -14,7 +14,11 @@ describe("study assessment submission", () => {
     formData.set("assessment", "incorrect");
 
     await expect(
-      submitStudyAssessment({ recordResult }, formData),
+      submitStudyAssessment(
+        { recordResult },
+        "f51ec1e6-f77f-4b58-9de8-828d698b3618",
+        formData,
+      ),
     ).resolves.toEqual({
       flashcardId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",
       recallStreak: 0,
@@ -22,6 +26,7 @@ describe("study assessment submission", () => {
 
     expect(recordResult).toHaveBeenCalledWith({
       id: "8de9e5d4-2788-47af-8767-d1a4b6a1b0fd",
+      deckId: "f51ec1e6-f77f-4b58-9de8-828d698b3618",
       flashcardId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",
       assessment: "incorrect",
     });
@@ -35,7 +40,11 @@ describe("study assessment submission", () => {
     formData.set("assessment", "almost");
 
     await expect(
-      submitStudyAssessment({ recordResult }, formData),
+      submitStudyAssessment(
+        { recordResult },
+        "f51ec1e6-f77f-4b58-9de8-828d698b3618",
+        formData,
+      ),
     ).rejects.toMatchObject({ name: "StudyAssessmentSubmissionError" });
     expect(recordResult).not.toHaveBeenCalled();
   });

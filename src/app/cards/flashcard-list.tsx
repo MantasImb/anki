@@ -1,7 +1,13 @@
 import Link from "next/link";
 import type { Flashcard } from "@/application/flashcards";
 
-export function FlashcardList({ flashcards }: { flashcards: Flashcard[] }) {
+export function FlashcardList({
+  deckId,
+  flashcards,
+}: {
+  deckId: string;
+  flashcards: Flashcard[];
+}) {
   return (
     <ul className="mt-10 grid gap-4 sm:grid-cols-2">
       {flashcards.map((flashcard) => (
@@ -15,7 +21,7 @@ export function FlashcardList({ flashcards }: { flashcards: Flashcard[] }) {
             </p>
             <Link
               className="inline-flex shrink-0 items-center rounded-lg text-sm font-semibold text-sky-700 hover:bg-sky-50 hover:text-sky-900"
-              href={`/cards/${flashcard.id}/edit`}
+              href={`/decks/${deckId}/cards/${flashcard.id}/edit`}
             >
               Edit Flashcard
             </Link>
@@ -28,6 +34,9 @@ export function FlashcardList({ flashcards }: { flashcards: Flashcard[] }) {
             English Back
           </p>
           <p className="mt-2 leading-7 text-slate-700">{flashcard.back}</p>
+          <p className="mt-4 text-xs font-medium text-slate-500">
+            Recall streak {flashcard.recallStreak}/3
+          </p>
         </li>
       ))}
     </ul>

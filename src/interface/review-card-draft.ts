@@ -17,6 +17,7 @@ export type CardDraftReviewFormState =
 
 export async function submitCardDraftReview(
   reviews: Pick<CardDraftReviewService, "update" | "approve" | "reject">,
+  deckId: string,
   sourceTextId: string,
   formData: FormData,
 ): Promise<CardDraftReviewFormState> {
@@ -35,17 +36,17 @@ export async function submitCardDraftReview(
 
   try {
     if (intent === "save") {
-      await reviews.update(sourceTextId, id, values);
+      await reviews.update(deckId, sourceTextId, id, values);
       return { status: "saved" };
     }
 
     if (intent === "approve") {
-      await reviews.approve(sourceTextId, id, values);
+      await reviews.approve(deckId, sourceTextId, id, values);
       return { status: "approved" };
     }
 
     if (intent === "reject") {
-      await reviews.reject(sourceTextId, id);
+      await reviews.reject(deckId, sourceTextId, id);
       return { status: "rejected" };
     }
 

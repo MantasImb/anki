@@ -1,4 +1,4 @@
-import type { Flashcard, NewFlashcard } from "./flashcards";
+import type { Flashcard, FlashcardContent } from "./flashcards";
 import type { CardDraft } from "./generation";
 
 export type DraftApproval = {
@@ -8,17 +8,23 @@ export type DraftApproval = {
 
 export interface CardDraftReviewRepository {
   updatePending(
+    deckId: string,
     sourceTextId: string,
     id: string,
-    input: NewFlashcard,
+    input: FlashcardContent,
   ): Promise<CardDraft | undefined>;
   approve(
+    deckId: string,
     sourceTextId: string,
     id: string,
-    input: NewFlashcard,
+    input: FlashcardContent,
   ): Promise<DraftApproval | undefined>;
-  approveRemaining(sourceTextId: string): Promise<DraftApproval[]>;
-  reject(sourceTextId: string, id: string): Promise<CardDraft | undefined>;
+  approveRemaining(deckId: string, sourceTextId: string): Promise<DraftApproval[]>;
+  reject(
+    deckId: string,
+    sourceTextId: string,
+    id: string,
+  ): Promise<CardDraft | undefined>;
 }
 
 export class CardDraftUnavailableError extends Error {
@@ -30,15 +36,15 @@ export class CardDraftUnavailableError extends Error {
 
 export class CardDraftValidationError extends Error {
   constructor(
-    readonly fieldErrors: Partial<Record<keyof NewFlashcard, string>>,
+    readonly fieldErrors: Partial<Record<keyof FlashcardContent, string>>,
   ) {
     super("Card Draft content is invalid.");
     this.name = "CardDraftValidationError";
   }
 }
 
-function validateDraft(input: NewFlashcard) {
-  const fieldErrors: Partial<Record<keyof NewFlashcard, string>> = {};
+function validateDraft(input: FlashcardContent) {
+  const fieldErrors: Partial<Record<keyof FlashcardContent, string>> = {};
 
   if (!input.front.trim()) {
     fieldErrors.front = "Enter a Norwegian Front.";
@@ -57,9 +63,19 @@ export function createCardDraftReviewService(
   repository: CardDraftReviewRepository,
 ) {
   return {
-    async update(sourceTextId: string, id: string, input: NewFlashcard) {
+    async update(
+      deckId: string,
+      sourceTextId: string,
+      id: string,
+      input: FlashcardContent,
+    ) {
       validateDraft(input);
-      const updated = await repository.updatePending(sourceTextId, id, input);
+      const updated = await repository.updatePending(
+        deckId,
+        sourceTextId,
+        id,
+        input,
+      );
 
       if (!updated) {
         throw new CardDraftUnavailableError();
@@ -67,9 +83,14 @@ export function createCardDraftReviewService(
 
       return updated;
     },
-    async approve(sourceTextId: string, id: string, input: NewFlashcard) {
+    async approve(
+      deckId: string,
+      sourceTextId: string,
+      id: string,
+      input: FlashcardContent,
+    ) {
       validateDraft(input);
-      const approval = await repository.approve(sourceTextId, id, input);
+      const approval = await repository.approve(deckId, sourceTextId, id, input);
 
       if (!approval) {
         throw new CardDraftUnavailableError();
@@ -77,11 +98,11 @@ export function createCardDraftReviewService(
 
       return approval;
     },
-    approveRemaining(sourceTextId: string) {
-      return repository.approveRemaining(sourceTextId);
+    approveRemaining(deckId: string, sourceTextId: string) {
+      return repository.approveRemaining(deckId, sourceTextId);
     },
-    async reject(sourceTextId: string, id: string) {
-      const rejected = await repository.reject(sourceTextId, id);
+    async reject(deckId: string, sourceTextId: string, id: string) {
+      const rejected = await repository.reject(deckId, sourceTextId, id);
 
       if (!rejected) {
         throw new CardDraftUnavailableError();

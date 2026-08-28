@@ -77,7 +77,7 @@ export async function verifyDeployment() {
     await client.end({ timeout: 5 });
   }
 
-  console.log("Deployment configuration and v1 database schema are ready.");
+  console.log("Deployment configuration and v2 database schema are ready.");
 }
 
 if (

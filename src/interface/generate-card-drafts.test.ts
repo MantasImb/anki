@@ -16,6 +16,7 @@ describe("Card Draft generation form submission", () => {
           throw new GenerationAttemptFailedError("source-1", "timeout");
         },
       },
+      "deck-a",
       formData,
     );
 
@@ -34,6 +35,7 @@ describe("Card Draft generation form submission", () => {
           });
         },
       },
+      "deck-a",
       formData,
     );
 

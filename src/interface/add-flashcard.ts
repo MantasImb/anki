@@ -22,6 +22,7 @@ export type AddFlashcardFormState =
 
 export async function submitAddFlashcardForm(
   flashcards: Pick<FlashcardService, "create">,
+  deckId: string,
   formData: FormData,
 ): Promise<AddFlashcardFormState> {
   const front = formData.get("front");
@@ -32,7 +33,7 @@ export async function submitAddFlashcardForm(
   };
 
   try {
-    await flashcards.create(values);
+    await flashcards.create({ deckId, ...values });
     return { status: "created" };
   } catch (error) {
     if (error instanceof FlashcardValidationError) {

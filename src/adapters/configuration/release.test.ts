@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { requireReleaseConfiguration } from "./release";
 
 const providerConfiguration = {
+  GOOGLE_CLOUD_PROJECT_ID: "learning-project",
+  GOOGLE_CLOUD_TRANSLATION_CREDENTIALS: JSON.stringify({
+    client_email: "translator@example.iam.gserviceaccount.com",
+    private_key: "google-secret",
+  }),
   OPENAI_API_KEY: "sk-test-secret",
   OPENAI_MODEL: "gpt-test",
 };

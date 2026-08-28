@@ -19,10 +19,14 @@ export type RecordStudyResult = {
   assessment: StudyAssessment;
 };
 
+export type RecordDeckStudyResult = RecordStudyResult & {
+  deckId: string;
+};
+
 export interface StudyRepository {
-  cards(): Promise<Flashcard[]>;
+  cards(deckId: string): Promise<Flashcard[]>;
   history(): Promise<StudyResult[]>;
-  recordResult(input: RecordStudyResult): Promise<RecordedStudyResult>;
+  recordResult(input: RecordDeckStudyResult): Promise<RecordedStudyResult>;
 }
 
 export function createStudyScheduler(random: () => number = Math.random) {
@@ -118,13 +122,13 @@ export function nextRecallStreak(
 
 export function createStudyService(repository: StudyRepository) {
   return {
-    cards() {
-      return repository.cards();
+    cards(deckId: string) {
+      return repository.cards(deckId);
     },
     history() {
       return repository.history();
     },
-    recordResult(input: RecordStudyResult) {
+    recordResult(input: RecordDeckStudyResult) {
       return repository.recordResult(input);
     },
   };

@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
+  foreignKey,
   integer,
   pgTable,
   text,
@@ -47,10 +49,75 @@ export const quizzes = pgTable(
   ],
 );
 
+export const quizQuestions = pgTable(
+  "quiz_questions",
+  {
+    id: uuid("id").primaryKey(),
+    quizId: uuid("quiz_id")
+      .notNull()
+      .references(() => quizzes.id, { onDelete: "cascade" }),
+    promptNorwegian: text("prompt_norwegian").notNull(),
+    promptEnglish: text("prompt_english").notNull(),
+    recallStreak: integer("recall_streak").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "quiz_questions_prompt_norwegian_not_blank",
+      sql`length(regexp_replace(${table.promptNorwegian}, '[[:space:]]', '', 'g')) > 0`,
+    ),
+    check(
+      "quiz_questions_prompt_english_not_blank",
+      sql`length(regexp_replace(${table.promptEnglish}, '[[:space:]]', '', 'g')) > 0`,
+    ),
+    check(
+      "quiz_questions_recall_streak_valid",
+      sql`${table.recallStreak} between 0 and 3`,
+    ),
+  ],
+);
+
+export const answerOptions = pgTable(
+  "answer_options",
+  {
+    id: uuid("id").primaryKey(),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => quizQuestions.id, { onDelete: "cascade" }),
+    norwegian: text("norwegian").notNull(),
+    english: text("english").notNull(),
+    isCorrect: boolean("is_correct").notNull(),
+    position: integer("position").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "answer_options_norwegian_not_blank",
+      sql`length(regexp_replace(${table.norwegian}, '[[:space:]]', '', 'g')) > 0`,
+    ),
+    check(
+      "answer_options_english_not_blank",
+      sql`length(regexp_replace(${table.english}, '[[:space:]]', '', 'g')) > 0`,
+    ),
+    check("answer_options_position_valid", sql`${table.position} >= 0`),
+    unique("answer_options_question_position_unique").on(
+      table.questionId,
+      table.position,
+    ),
+  ],
+);
+
 export const sourceTexts = pgTable(
   "source_texts",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    deckId: uuid("deck_id")
+      .notNull()
+      .references(() => flashcardDecks.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
     generationStatus: text("generation_status")
       .$type<"ready" | "completed" | "failed">()
@@ -69,6 +136,7 @@ export const sourceTexts = pgTable(
       "source_texts_generation_status_valid",
       sql`${table.generationStatus} in ('ready', 'completed', 'failed')`,
     ),
+    unique("source_texts_id_deck_id_unique").on(table.id, table.deckId),
   ],
 );
 
@@ -76,6 +144,9 @@ export const flashcards = pgTable(
   "flashcards",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    deckId: uuid("deck_id")
+      .notNull()
+      .references(() => flashcardDecks.id, { onDelete: "cascade" }),
     sourceTextId: uuid("source_text_id").references(() => sourceTexts.id),
     front: text("front").notNull(),
     back: text("back").notNull(),
@@ -97,6 +168,11 @@ export const flashcards = pgTable(
       "flashcards_recall_streak_valid",
       sql`${table.recallStreak} between 0 and 3`,
     ),
+    foreignKey({
+      columns: [table.sourceTextId, table.deckId],
+      foreignColumns: [sourceTexts.id, sourceTexts.deckId],
+      name: "flashcards_source_text_deck_match_fk",
+    }),
   ],
 );
 

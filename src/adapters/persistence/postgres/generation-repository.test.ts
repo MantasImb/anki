@@ -4,14 +4,23 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createGenerationService } from "../../../application/generation";
 import { GenerationFailure } from "../../../application/generation";
+import { createCollectionService } from "../../../application/collections";
+import { createDrizzleFlashcardDeckRepository } from "./collection-repository";
 import { createDrizzleGenerationRepository } from "./generation-repository";
 
 describe("PostgreSQL Generation persistence", () => {
   let client: PGlite;
+  let deckId: string;
 
   beforeEach(async () => {
     client = await PGlite.create();
     await migrate(drizzle(client), { migrationsFolder: "drizzle" });
+    deckId = (
+      await createCollectionService(
+        "Flashcard Deck",
+        createDrizzleFlashcardDeckRepository(drizzle(client)),
+      ).create({ name: "Generated cards" })
+    ).id;
   });
 
   afterEach(async () => {
@@ -33,13 +42,15 @@ describe("PostgreSQL Generation persistence", () => {
     });
 
     const completed = await firstConnection.generate(
+      deckId,
       "Drosjesjåføren skal opptre høflig.",
     );
     const secondConnection = createDrizzleGenerationRepository(drizzle(client));
 
-    expect(await secondConnection.getSourceWithDrafts(completed.id)).toEqual(
-      completed,
-    );
+    expect(
+      await secondConnection.getSourceWithDrafts(deckId, completed.id),
+    ).toEqual(completed);
+    expect(completed.deckId).toBe(deckId);
     expect(completed.generationStatus).toBe("completed");
     expect(completed.drafts).toMatchObject([
       { front: "høflig", back: "polite", reviewStatus: "pending" },
@@ -64,12 +75,15 @@ describe("PostgreSQL Generation persistence", () => {
 
     let sourceTextId = "";
     try {
-      await generation.generate("Drosjesjåføren skal opptre høflig.");
+      await generation.generate(deckId, "Drosjesjåføren skal opptre høflig.");
     } catch (error) {
       sourceTextId = (error as { sourceTextId: string }).sourceTextId;
     }
 
-    expect(await generation.getSourceWithDrafts(sourceTextId)).toMatchObject({
+    expect(
+      await generation.getSourceWithDrafts(deckId, sourceTextId),
+    ).toMatchObject({
+      deckId,
       generationStatus: "failed",
       drafts: [],
     });
@@ -78,13 +92,14 @@ describe("PostgreSQL Generation persistence", () => {
   it("allows only one retry to claim a failed Source Text", async () => {
     const repository = createDrizzleGenerationRepository(drizzle(client));
     const source = await repository.createSource(
+      deckId,
       "Drosjesjåføren skal opptre høflig.",
     );
-    await repository.failGeneration(source.id);
+    await repository.failGeneration(deckId, source.id);
 
     const [first, second] = await Promise.all([
-      repository.claimFailedSource(source.id),
-      repository.claimFailedSource(source.id),
+      repository.claimFailedSource(deckId, source.id),
+      repository.claimFailedSource(deckId, source.id),
     ]);
 
     expect([first, second].filter(Boolean)).toHaveLength(1);
@@ -93,19 +108,59 @@ describe("PostgreSQL Generation persistence", () => {
   it("retains no partial Card Drafts when the complete collection cannot be saved", async () => {
     const repository = createDrizzleGenerationRepository(drizzle(client));
     const source = await repository.createSource(
+      deckId,
       "Drosjesjåføren skal opptre høflig.",
     );
 
     await expect(
-      repository.completeGeneration(source.id, [
+      repository.completeGeneration(deckId, source.id, [
         { front: "høflig", back: "polite" },
         { front: " ", back: "a taxi driver" },
       ]),
     ).rejects.toThrow();
 
-    expect(await repository.getSourceWithDrafts(source.id)).toEqual({
+    expect(await repository.getSourceWithDrafts(deckId, source.id)).toEqual({
       ...source,
       drafts: [],
     });
+  });
+
+  it("cannot complete a Source Text through another Deck", async () => {
+    const database = drizzle(client);
+    const otherDeckId = (
+      await createCollectionService(
+        "Flashcard Deck",
+        createDrizzleFlashcardDeckRepository(database),
+      ).create({ name: "Other Deck" })
+    ).id;
+    const repository = createDrizzleGenerationRepository(database);
+    const source = await repository.createSource(deckId, "Han er høflig.");
+
+    await expect(
+      repository.completeGeneration(otherDeckId, source.id, [
+        { front: "høflig", back: "polite" },
+      ]),
+    ).rejects.toThrow("Source Text was not found.");
+    expect(await repository.getSourceWithDrafts(deckId, source.id)).toEqual({
+      ...source,
+      drafts: [],
+    });
+  });
+
+  it("stores only one Card Draft collection when completion is submitted twice", async () => {
+    const repository = createDrizzleGenerationRepository(drizzle(client));
+    const source = await repository.createSource(deckId, "Han er høflig.");
+    await repository.completeGeneration(deckId, source.id, [
+      { front: "høflig", back: "polite" },
+    ]);
+
+    await expect(
+      repository.completeGeneration(deckId, source.id, [
+        { front: "rolig", back: "calm" },
+      ]),
+    ).rejects.toThrow("Source Text was not found.");
+    expect(
+      (await repository.getSourceWithDrafts(deckId, source.id))?.drafts,
+    ).toMatchObject([{ front: "høflig", back: "polite" }]);
   });
 });

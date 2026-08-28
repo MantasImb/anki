@@ -4,16 +4,27 @@ export type ExpectedMigration = {
 };
 
 const tables = [
+  "answer_options",
   "card_drafts",
   "flashcard_decks",
   "flashcards",
   "generation_instructions",
   "quizzes",
+  "quiz_questions",
   "source_texts",
   "study_results",
 ] as const;
 
 const columns = {
+  answer_options: [
+    "id",
+    "question_id",
+    "norwegian",
+    "english",
+    "is_correct",
+    "position",
+    "created_at",
+  ],
   card_drafts: [
     "id",
     "source_text_id",
@@ -27,6 +38,7 @@ const columns = {
   flashcard_decks: ["id", "name", "name_key", "created_at"],
   flashcards: [
     "id",
+    "deck_id",
     "source_text_id",
     "front",
     "back",
@@ -35,11 +47,30 @@ const columns = {
   ],
   generation_instructions: ["id", "instructions", "updated_at"],
   quizzes: ["id", "name", "name_key", "created_at"],
-  source_texts: ["id", "content", "generation_status", "created_at"],
+  quiz_questions: [
+    "id",
+    "quiz_id",
+    "prompt_norwegian",
+    "prompt_english",
+    "recall_streak",
+    "created_at",
+  ],
+  source_texts: [
+    "id",
+    "deck_id",
+    "content",
+    "generation_status",
+    "created_at",
+  ],
   study_results: ["id", "flashcard_id", "assessment", "created_at"],
 } as const;
 
 const constraints = [
+  "answer_options_english_not_blank",
+  "answer_options_norwegian_not_blank",
+  "answer_options_position_valid",
+  "answer_options_question_id_quiz_questions_id_fk",
+  "answer_options_question_position_unique",
   "card_drafts_approved_flashcard_id_flashcards_id_fk",
   "card_drafts_approved_flashcard_id_unique",
   "card_drafts_back_not_blank",
@@ -49,13 +80,21 @@ const constraints = [
   "flashcard_decks_name_key_unique",
   "flashcard_decks_name_not_blank",
   "flashcards_back_not_blank",
+  "flashcards_deck_id_flashcard_decks_id_fk",
   "flashcards_front_not_blank",
   "flashcards_recall_streak_valid",
+  "flashcards_source_text_deck_match_fk",
   "flashcards_source_text_id_source_texts_id_fk",
   "quizzes_name_key_unique",
   "quizzes_name_not_blank",
+  "quiz_questions_prompt_english_not_blank",
+  "quiz_questions_prompt_norwegian_not_blank",
+  "quiz_questions_quiz_id_quizzes_id_fk",
+  "quiz_questions_recall_streak_valid",
   "source_texts_content_not_blank",
+  "source_texts_deck_id_flashcard_decks_id_fk",
   "source_texts_generation_status_valid",
+  "source_texts_id_deck_id_unique",
   "study_results_assessment_valid",
   "study_results_flashcard_id_flashcards_id_fk",
 ] as const;

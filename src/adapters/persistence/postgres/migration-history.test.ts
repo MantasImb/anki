@@ -26,21 +26,25 @@ describe("complete PostgreSQL migration history", () => {
       from pg_tables
       where schemaname = 'public'
         and tablename in (
+          'answer_options',
           'card_drafts',
           'flashcard_decks',
           'flashcards',
           'generation_instructions',
           'quizzes',
+          'quiz_questions',
           'source_texts',
           'study_results'
         )
       order by tablename
     `);
       expect(relations.rows.map(({ tablename }) => tablename)).toEqual([
+        "answer_options",
         "card_drafts",
         "flashcard_decks",
         "flashcards",
         "generation_instructions",
+        "quiz_questions",
         "quizzes",
         "source_texts",
         "study_results",

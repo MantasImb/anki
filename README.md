@@ -4,8 +4,8 @@ A phone-friendly Next.js application for creating and studying Norwegian-to-Engl
 
 ## Required service setup
 
-You need a Railway PostgreSQL database and an OpenAI API project before Card
-Draft generation can run.
+You need a Railway PostgreSQL database, an OpenAI API project, and a Google
+Cloud project before every application workflow can run.
 
 ### 1. Create the PostgreSQL database
 
@@ -51,6 +51,10 @@ OPENAI_API_KEY=your-openai-project-key
 OPENAI_MODEL=gpt-5.6
 OPENAI_TIMEOUT_MS=60000
 SOURCE_TEXT_MAX_CHARACTERS=20000
+GOOGLE_CLOUD_PROJECT_ID=your-google-cloud-project-id
+GOOGLE_CLOUD_TRANSLATION_CREDENTIALS='{"client_email":"translator@example.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"}'
+GOOGLE_CLOUD_TRANSLATION_LOCATION=global
+GOOGLE_CLOUD_TRANSLATION_TIMEOUT_MS=10000
 ```
 
 `SOURCE_TEXT_MAX_CHARACTERS` is optional and defaults to `20000`. It limits a
@@ -58,6 +62,11 @@ single Source Text before an OpenAI request is made.
 
 `OPENAI_TIMEOUT_MS` is optional and defaults to `60000` (60 seconds). A timed
 out attempt retains the Source Text and can be retried from the application.
+
+Enable Cloud Translation Advanced for the configured Google Cloud project and
+store a service account JSON key as the one-line
+`GOOGLE_CLOUD_TRANSLATION_CREDENTIALS` value. The location and timeout are
+optional and default to `global` and `10000` milliseconds.
 
 Apply every versioned database migration, then start the application:
 
@@ -93,14 +102,23 @@ Add the same variables to the application's protected deployment environment:
 - `OPENAI_MODEL` — the configured Structured Outputs-capable model.
 - `OPENAI_TIMEOUT_MS` — optional provider request timeout in milliseconds.
 - `SOURCE_TEXT_MAX_CHARACTERS` — optional Source Text guardrail.
+- `GOOGLE_CLOUD_PROJECT_ID` — project with Cloud Translation Advanced enabled.
+- `GOOGLE_CLOUD_TRANSLATION_CREDENTIALS` — one-line service account JSON with
+  `client_email` and `private_key`, stored only in protected server
+  configuration.
+- `GOOGLE_CLOUD_TRANSLATION_LOCATION` — optional API location (defaults to
+  `global`).
+- `GOOGLE_CLOUD_TRANSLATION_TIMEOUT_MS` — optional request timeout in
+  milliseconds (defaults to `10000`).
 
 Apply migrations to the production database before using a deployment. Do not
 expose either credential to browser code.
 
 Set these values in Vercel's **Preview** and **Production** environments as
 appropriate. Never create `NEXT_PUBLIC_DATABASE_URL` or
-`NEXT_PUBLIC_OPENAI_API_KEY`; Phase 8 startup validation rejects those names so
-credentials cannot be bundled for browser use.
+`NEXT_PUBLIC_OPENAI_API_KEY`. Also never expose Google credentials under
+`NEXT_PUBLIC_GOOGLE_CLOUD_TRANSLATION_CREDENTIALS`; startup validation rejects
+these names so credentials cannot be bundled for browser use.
 
 The generated Vercel URL is publicly reachable. V1 intentionally has no
 accounts, authorization, or Vercel Deployment Protection, so do not store

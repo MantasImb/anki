@@ -18,6 +18,7 @@
     "release:prepare": "bun scripts/prepare-release.ts"
   },
   "dependencies": {
+    "@google-cloud/translate": "^10.0.1",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.9",
     "openai": "^7.4.0",

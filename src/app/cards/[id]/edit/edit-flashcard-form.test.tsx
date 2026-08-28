@@ -22,6 +22,7 @@ describe("Edit Flashcard form", () => {
         action={update}
         flashcard={{
           id: "card-id",
+          deckId: "deck-id",
           front: "Jeg kjører drosje.",
           back: "I drive a taxi.",
           recallStreak: 0,
@@ -50,6 +51,7 @@ describe("Edit Flashcard form", () => {
         action={rejectInvalidEdit}
         flashcard={{
           id: "card-id",
+          deckId: "deck-id",
           front: "Jeg kjører drosje.",
           back: "I drive a taxi.",
           recallStreak: 0,

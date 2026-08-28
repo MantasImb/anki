@@ -1,9 +1,9 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { FlashcardNotFoundError, type Flashcard } from "../../../application/flashcards";
 import {
   nextRecallStreak,
-  type RecordStudyResult,
+  type RecordDeckStudyResult,
   type RecordedStudyResult,
   type StudyRepository,
   type StudyResult,
@@ -12,20 +12,32 @@ import * as schema from "./schema";
 
 const selectedFlashcard = {
   id: schema.flashcards.id,
+  deckId: schema.flashcards.deckId,
   sourceTextId: schema.flashcards.sourceTextId,
   front: schema.flashcards.front,
   back: schema.flashcards.back,
   recallStreak: schema.flashcards.recallStreak,
 };
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
 export function createDrizzleStudyRepository<
   TResult extends PgQueryResultHKT,
 >(database: PgDatabase<TResult, typeof schema>): StudyRepository {
   return {
-    cards(): Promise<Flashcard[]> {
+    cards(deckId: string): Promise<Flashcard[]> {
+      if (!isUuid(deckId)) {
+        return Promise.resolve([]);
+      }
+
       return database
         .select(selectedFlashcard)
         .from(schema.flashcards)
+        .where(eq(schema.flashcards.deckId, deckId))
         .orderBy(asc(schema.flashcards.createdAt), asc(schema.flashcards.id));
     },
 
@@ -44,12 +56,22 @@ export function createDrizzleStudyRepository<
         );
     },
 
-    recordResult(input: RecordStudyResult): Promise<RecordedStudyResult> {
+    recordResult(input: RecordDeckStudyResult): Promise<RecordedStudyResult> {
+      if (!isUuid(input.deckId) || !isUuid(input.flashcardId)) {
+        return Promise.reject(new FlashcardNotFoundError());
+      }
+
       return database.transaction(async (transaction) => {
+        const { deckId, ...resultInput } = input;
         const [flashcard] = await transaction
           .select({ recallStreak: schema.flashcards.recallStreak })
           .from(schema.flashcards)
-          .where(eq(schema.flashcards.id, input.flashcardId))
+          .where(
+            and(
+              eq(schema.flashcards.deckId, deckId),
+              eq(schema.flashcards.id, input.flashcardId),
+            ),
+          )
           .for("update");
 
         if (!flashcard) {
@@ -58,7 +80,7 @@ export function createDrizzleStudyRepository<
 
         const [created] = await transaction
           .insert(schema.studyResults)
-          .values(input)
+          .values(resultInput)
           .onConflictDoNothing({ target: schema.studyResults.id })
           .returning({
             id: schema.studyResults.id,

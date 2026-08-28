@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { CollectionDetail } from "@/app/collections/collection-detail";
+import { QuizDetail } from "@/app/quizzes/quiz-detail";
 import { getQuizService } from "@/composition/collections";
+import { getQuizQuestionService } from "@/composition/quiz-questions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,5 +13,6 @@ export default async function QuizPage({
   const { id } = await params;
   const quiz = await getQuizService().get(id);
   if (!quiz) notFound();
-  return <CollectionDetail collection={quiz} collectionType="Quiz" />;
+  const questions = await getQuizQuestionService().list(id);
+  return <QuizDetail quiz={quiz} questions={questions} />;
 }

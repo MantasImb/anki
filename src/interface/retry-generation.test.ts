@@ -10,6 +10,7 @@ describe("Generation retry submission", () => {
           throw new GenerationAttemptFailedError("source-1", "refusal");
         },
       },
+      "deck-a",
       "source-1",
     );
 

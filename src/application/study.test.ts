@@ -4,17 +4,17 @@ import {
   createStudyScheduler,
   createStudyService,
   nextRecallStreak,
-  type RecordStudyResult,
+  type RecordDeckStudyResult,
   type RecordedStudyResult,
   type StudyRepository,
   type StudyResult,
 } from "./study";
 
 const weightedCards: Flashcard[] = [
-  { id: "card-0", front: "null", back: "zero", recallStreak: 0 },
-  { id: "card-1", front: "én", back: "one", recallStreak: 1 },
-  { id: "card-2", front: "to", back: "two", recallStreak: 2 },
-  { id: "card-3", front: "tre", back: "three", recallStreak: 3 },
+  { id: "card-0", deckId: "deck-a", front: "null", back: "zero", recallStreak: 0 },
+  { id: "card-1", deckId: "deck-a", front: "én", back: "one", recallStreak: 1 },
+  { id: "card-2", deckId: "deck-a", front: "to", back: "two", recallStreak: 2 },
+  { id: "card-3", deckId: "deck-a", front: "tre", back: "three", recallStreak: 3 },
 ];
 
 describe("adaptive study ordering", () => {
@@ -36,7 +36,7 @@ describe("adaptive study ordering", () => {
   it("holds an Incorrect Flashcard back for three other study positions", () => {
     const cards = [
       ...weightedCards,
-      { id: "card-4", front: "fire", back: "four", recallStreak: 0 },
+      { id: "card-4", deckId: "deck-a", front: "fire", back: "four", recallStreak: 0 },
     ];
     const scheduler = createStudyScheduler(() => 0);
 
@@ -103,7 +103,7 @@ describe("adaptive study ordering", () => {
   it("keeps an out-of-range mastered Flashcard eligible at minimum weight", () => {
     const scheduler = createStudyScheduler(() => 0);
     const cards = [
-      { id: "mastered", front: "ferdig", back: "finished", recallStreak: 7 },
+      { id: "mastered", deckId: "deck-a", front: "ferdig", back: "finished", recallStreak: 7 },
       weightedCards[0],
     ];
 
@@ -116,17 +116,21 @@ class MemoryStudyRepository implements StudyRepository {
 
   constructor(readonly flashcards: Flashcard[]) {}
 
-  async cards(): Promise<Flashcard[]> {
-    return this.flashcards;
+  async cards(deckId: string): Promise<Flashcard[]> {
+    return this.flashcards.filter((flashcard) => flashcard.deckId === deckId);
   }
 
   async history(): Promise<StudyResult[]> {
     return [...this.results];
   }
 
-  async recordResult(input: RecordStudyResult): Promise<RecordedStudyResult> {
+  async recordResult(input: RecordDeckStudyResult): Promise<RecordedStudyResult> {
+    const { deckId, ...resultInput } = input;
     const existing = this.results.find(({ id }) => id === input.id);
-    const card = this.flashcards.find(({ id }) => id === input.flashcardId);
+    const card = this.flashcards.find(
+      ({ id, deckId: ownerDeckId }) =>
+        id === input.flashcardId && ownerDeckId === deckId,
+    );
 
     if (!card) {
       throw new Error("Flashcard was not found.");
@@ -140,7 +144,7 @@ class MemoryStudyRepository implements StudyRepository {
       card.recallStreak,
       input.assessment,
     );
-    const result = { ...input, createdAt: new Date() };
+    const result = { ...resultInput, createdAt: new Date() };
     this.results.push(result);
     return { ...result, recallStreak: card.recallStreak };
   }
@@ -161,9 +165,34 @@ describe("Recall Streak transitions", () => {
 });
 
 describe("study session", () => {
+  it("loads only Flashcards from the selected Deck", async () => {
+    const selected = {
+      id: "card-a",
+      deckId: "deck-a",
+      front: "høflig",
+      back: "polite",
+      recallStreak: 0,
+    };
+    const study = createStudyService(
+      new MemoryStudyRepository([
+        selected,
+        {
+          id: "card-b",
+          deckId: "deck-b",
+          front: "ledig",
+          back: "available",
+          recallStreak: 0,
+        },
+      ]),
+    );
+
+    expect(await study.cards("deck-a")).toEqual([selected]);
+  });
+
   it("starts immediately with a saved Flashcard", async () => {
     const flashcard = {
       id: "card-1",
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
       recallStreak: 0,
@@ -172,12 +201,13 @@ describe("study session", () => {
       new MemoryStudyRepository([flashcard]),
     );
 
-    expect(await study.cards()).toEqual([flashcard]);
+    expect(await study.cards("deck-a")).toEqual([flashcard]);
   });
 
   it("records a Correct result and retains the updated streak", async () => {
     const flashcard = {
       id: "card-1",
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
       recallStreak: 0,
@@ -188,6 +218,7 @@ describe("study session", () => {
 
     const recorded = await study.recordResult({
       id: "attempt-1",
+      deckId: "deck-a",
       flashcardId: flashcard.id,
       assessment: "correct",
     });
@@ -200,14 +231,38 @@ describe("study session", () => {
     expect(await study.history()).toEqual([
       expect.objectContaining({ id: recorded.id }),
     ]);
-    expect(await study.cards()).toEqual([
+    expect(await study.cards("deck-a")).toEqual([
       expect.objectContaining({ recallStreak: 1 }),
     ]);
+  });
+
+  it("cannot record a result for a Flashcard outside the selected Deck", async () => {
+    const flashcard = {
+      id: "card-1",
+      deckId: "deck-a",
+      front: "Jeg kjører drosje.",
+      back: "I drive a taxi.",
+      recallStreak: 0,
+    };
+    const study = createStudyService(
+      new MemoryStudyRepository([flashcard]),
+    );
+
+    await expect(
+      study.recordResult({
+        id: "attempt-1",
+        deckId: "deck-b",
+        flashcardId: flashcard.id,
+        assessment: "correct",
+      }),
+    ).rejects.toThrow("Flashcard was not found.");
+    expect(flashcard.recallStreak).toBe(0);
   });
 
   it("records only one result for a repeated study attempt", async () => {
     const flashcard = {
       id: "card-1",
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
       recallStreak: 0,
@@ -217,6 +272,7 @@ describe("study session", () => {
     );
     const attempt = {
       id: "attempt-1",
+      deckId: "deck-a",
       flashcardId: flashcard.id,
       assessment: "correct" as const,
     };
@@ -228,7 +284,7 @@ describe("study session", () => {
     expect(await study.history()).toEqual([
       expect.objectContaining({ id: first.id }),
     ]);
-    expect(await study.cards()).toEqual([
+    expect(await study.cards("deck-a")).toEqual([
       expect.objectContaining({ recallStreak: 1 }),
     ]);
   });

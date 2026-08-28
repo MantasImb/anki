@@ -18,13 +18,14 @@ export type GenerationFormState =
 
 export async function submitGenerationForm(
   generation: Pick<GenerationService, "generate">,
+  deckId: string,
   formData: FormData,
 ): Promise<GenerationFormState> {
   const formValue = formData.get("sourceText");
   const sourceText = typeof formValue === "string" ? formValue : "";
 
   try {
-    const completed = await generation.generate(sourceText);
+    const completed = await generation.generate(deckId, sourceText);
     return { status: "generated", sourceTextId: completed.id };
   } catch (error) {
     if (error instanceof SourceTextValidationError) {

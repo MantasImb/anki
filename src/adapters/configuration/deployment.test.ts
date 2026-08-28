@@ -3,6 +3,11 @@ import { validateDeploymentConfiguration } from "./deployment";
 
 const validEnvironment = {
   DATABASE_URL: "postgresql://learner:secret@railway.example:5432/railway",
+  GOOGLE_CLOUD_PROJECT_ID: "learning-project",
+  GOOGLE_CLOUD_TRANSLATION_CREDENTIALS: JSON.stringify({
+    client_email: "translator@example.iam.gserviceaccount.com",
+    private_key: "google-secret",
+  }),
   OPENAI_API_KEY: "sk-test-secret",
   OPENAI_MODEL: "gpt-test",
 };
@@ -17,6 +22,15 @@ describe("deployment configuration", () => {
         maximumSourceTextCharacters: 20_000,
         model: "gpt-test",
         timeoutMilliseconds: 60_000,
+      },
+      googleTranslation: {
+        credentials: {
+          client_email: "translator@example.iam.gserviceaccount.com",
+          private_key: "google-secret",
+        },
+        location: "global",
+        projectId: "learning-project",
+        timeoutMilliseconds: 10_000,
       },
     });
   });
@@ -33,6 +47,13 @@ describe("deployment configuration", () => {
     [
       { ...validEnvironment, NEXT_PUBLIC_OPENAI_API_KEY: "exposed" },
       "NEXT_PUBLIC_OPENAI_API_KEY must not be set because provider credentials are server-only.",
+    ],
+    [
+      {
+        ...validEnvironment,
+        NEXT_PUBLIC_GOOGLE_CLOUD_TRANSLATION_CREDENTIALS: "exposed",
+      },
+      "NEXT_PUBLIC_GOOGLE_CLOUD_TRANSLATION_CREDENTIALS must not be set because provider credentials are server-only.",
     ],
   ])("rejects unsafe deployment configuration", (environment, message) => {
     expect(() => validateDeploymentConfiguration(environment)).toThrow(message);
