@@ -8,6 +8,19 @@ import { QuestionForm } from "./question-form";
 afterEach(cleanup);
 
 describe("Quiz Question form", () => {
+  it("allows more than one Answer Option to be marked correct", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async () => ({ status: "idle" as const }));
+    render(<QuestionForm action={action} />);
+
+    await user.click(screen.getByLabelText("Correct option 2"));
+    await user.click(screen.getByRole("button", { name: "Save Question" }));
+
+    await waitFor(() => expect(action).toHaveBeenCalled());
+    const submitted = action.mock.calls[0][1] as FormData;
+    expect(submitted.getAll("correctOptions")).toEqual(["0", "1"]);
+  });
+
   it("shows an editable translation preview before saving the reviewed English", async () => {
     const user = userEvent.setup();
     const action = vi.fn(async (_state, formData: FormData) => {
@@ -160,6 +173,6 @@ describe("Quiz Question form", () => {
     const submitted = action.mock.calls[0][1] as FormData;
     expect(submitted.get("options.0.id")).toBe("option-b");
     expect(submitted.get("options.1.id")).toBe("option-a");
-    expect(submitted.get("correctOption")).toBe("1");
+    expect(submitted.getAll("correctOptions")).toEqual(["1"]);
   });
 });

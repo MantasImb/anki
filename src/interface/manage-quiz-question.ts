@@ -46,8 +46,11 @@ function readContent(formData: FormData): QuizQuestionContent {
     })
     .filter((value, index, all) => all.indexOf(value) === index)
     .sort((a, b) => a - b);
-  const correctOption = textValue(formData, "correctOption");
-
+  const correctOptions = new Set(
+    formData.getAll("correctOptions").filter(
+      (value): value is string => typeof value === "string",
+    ),
+  );
   return {
     promptNorwegian: textValue(formData, "promptNorwegian"),
     promptEnglish: textValue(formData, "promptEnglish"),
@@ -57,7 +60,7 @@ function readContent(formData: FormData): QuizQuestionContent {
         ...(id ? { id } : {}),
         norwegian: textValue(formData, `options.${index}.norwegian`),
         english: textValue(formData, `options.${index}.english`),
-        isCorrect: correctOption === String(index),
+        isCorrect: correctOptions.has(String(index)),
       };
     }),
   };

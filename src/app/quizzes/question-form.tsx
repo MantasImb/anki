@@ -143,7 +143,7 @@ export function QuestionForm({
       <fieldset className="space-y-4">
         <legend className="text-lg font-semibold text-slate-950">Answer Options</legend>
         <p className="text-sm text-slate-600">
-          Add Norwegian and English text, then mark the one correct option.
+          Add Norwegian and English text, then mark every correct option.
         </p>
         {invalidState?.fieldErrors.options ? (
           <p className="text-sm font-medium text-red-700">{invalidState.fieldErrors.options}</p>
@@ -202,9 +202,9 @@ export function QuestionForm({
               <label className="mt-4 flex min-h-11 items-center gap-3 text-sm font-semibold text-slate-900">
                 <input
                   checked={option.isCorrect}
-                  name="correctOption"
-                  onChange={() => setOptions((current) => current.map((candidate, candidateIndex) => ({ ...candidate, isCorrect: candidateIndex === index })))}
-                  type="radio"
+                  name="correctOptions"
+                  onChange={(event) => changeOption(index, { isCorrect: event.target.checked })}
+                  type="checkbox"
                   value={index}
                 />
                 Correct option {index + 1}

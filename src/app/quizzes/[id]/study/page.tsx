@@ -23,9 +23,7 @@ export default async function QuizStudyPage({
   ]);
   if (!quiz) notFound();
 
-  const questions = allQuestions
-    .filter(({ choiceType }) => choiceType === "single")
-    .map(prepareQuizStudyQuestion);
+  const questions = allQuestions.map(prepareQuizStudyQuestion);
   const question = createQuizStudyScheduler().next(questions);
 
   return (
@@ -43,7 +41,7 @@ export default async function QuizStudyPage({
         {quiz.name}
       </h1>
       <p className="mt-3 leading-7 text-slate-600">
-        Choose one answer, submit it, then review the feedback.
+        Choose the correct answer or answers, submit once, then review the feedback.
       </p>
 
       {question ? (
@@ -56,10 +54,10 @@ export default async function QuizStudyPage({
       ) : (
         <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-12">
           <h2 className="text-xl font-semibold text-slate-950">
-            No single-answer Questions to study
+            No Questions to study
           </h2>
           <p className="mx-auto mt-3 max-w-md leading-7 text-slate-600">
-            Add a Question with exactly one correct Answer Option, then return here.
+            Add a Question, then return here.
           </p>
           <Link
             className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white"

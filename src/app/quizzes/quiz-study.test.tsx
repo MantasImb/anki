@@ -37,6 +37,109 @@ function singleQuestion(overrides: Partial<QuizQuestion> = {}): QuizQuestion {
   };
 }
 
+function multipleQuestion(): QuizQuestion {
+  return {
+    ...singleQuestion(),
+    promptNorwegian: "Hvilke ord er positive?",
+    promptEnglish: "Which words are positive?",
+    choiceType: "multiple",
+    options: [
+      {
+        id: "bf56aef6-a583-42cb-af8a-d21a4d2a2165",
+        norwegian: "vennlig",
+        english: "friendly",
+        isCorrect: true,
+        position: 0,
+      },
+      {
+        id: "41f2fb30-06ec-423a-af44-2e264f21ae52",
+        norwegian: "snill",
+        english: "kind",
+        isCorrect: true,
+        position: 1,
+      },
+      {
+        id: "2acb88e5-a372-4315-a1ac-48c0cc4c4d82",
+        norwegian: "sint",
+        english: "angry",
+        isCorrect: false,
+        position: 2,
+      },
+    ],
+  };
+}
+
+describe("multiple-answer Quiz study", () => {
+  it("allows multiple selections before one explicit submission", async () => {
+    const action = vi.fn(async () => ({
+      questionId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",
+      outcome: "correct" as const,
+      translationHelpUsed: false,
+      recallStreak: 1,
+      correctOptionIds: [
+        "bf56aef6-a583-42cb-af8a-d21a4d2a2165",
+        "41f2fb30-06ec-423a-af44-2e264f21ae52",
+      ],
+    }));
+    render(
+      <QuizStudySession
+        action={action}
+        initialAttemptId="8de9e5d4-2788-47af-8767-d1a4b6a1b0fd"
+        initialQuestionId="420d7e63-b4e4-4f5c-b88d-93ab42add48a"
+        questions={[prepareQuizStudyQuestion(multipleQuestion())]}
+        random={() => 0.9}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "vennlig" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "snill" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+
+    expect(await screen.findByText("Correct")).toBeTruthy();
+    expect(action.mock.calls[0][0].getAll("selectedOptionIds")).toEqual([
+      "bf56aef6-a583-42cb-af8a-d21a4d2a2165",
+      "41f2fb30-06ec-423a-af44-2e264f21ae52",
+    ]);
+    expect(screen.getAllByRole("checkbox").every((control) =>
+      (control as HTMLInputElement).disabled
+    )).toBe(true);
+  });
+
+  it("highlights missed correct options and selected incorrect options", async () => {
+    const action = vi.fn(async () => ({
+      questionId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",
+      outcome: "incorrect" as const,
+      translationHelpUsed: false,
+      recallStreak: 0,
+      correctOptionIds: [
+        "bf56aef6-a583-42cb-af8a-d21a4d2a2165",
+        "41f2fb30-06ec-423a-af44-2e264f21ae52",
+      ],
+    }));
+    render(
+      <QuizStudySession
+        action={action}
+        initialAttemptId="8de9e5d4-2788-47af-8767-d1a4b6a1b0fd"
+        initialQuestionId="420d7e63-b4e4-4f5c-b88d-93ab42add48a"
+        questions={[prepareQuizStudyQuestion(multipleQuestion())]}
+        random={() => 0.9}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "vennlig" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "sint" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+
+    expect(await screen.findByText("Incorrect")).toBeTruthy();
+    expect(screen.getAllByText("Correct answer")).toHaveLength(2);
+    expect(screen.getByText("Your incorrect selection")).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: /snill/ }) as HTMLInputElement).checked)
+      .toBe(false);
+    expect((screen.getByRole("checkbox", { name: /sint/ }) as HTMLInputElement).checked)
+      .toBe(true);
+  });
+});
+
 describe("single-answer Quiz study", () => {
   it("allows exactly one Answer Option to be selected", async () => {
     render(
@@ -64,7 +167,7 @@ describe("single-answer Quiz study", () => {
       outcome: "correct" as const,
       translationHelpUsed: false,
       recallStreak: 1,
-      correctOptionId: "bf56aef6-a583-42cb-af8a-d21a4d2a2165",
+      correctOptionIds: ["bf56aef6-a583-42cb-af8a-d21a4d2a2165"],
     }));
     render(
       <QuizStudySession
@@ -76,10 +179,13 @@ describe("single-answer Quiz study", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("radio", { name: "vennlig" }));
+    const selectedAnswer = screen.getByRole("radio", { name: "vennlig" });
+    await userEvent.click(selectedAnswer);
     await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
 
     expect(await screen.findByText("Correct")).toBeTruthy();
+    expect((screen.getByRole("radio", { name: /vennlig/ }) as HTMLInputElement).checked)
+      .toBe(true);
     expect(screen.getByText("Correct answer")).toBeTruthy();
     expect(screen.getByText("Hva betyr høflig?")).toBeTruthy();
     await waitFor(() => expect(screen.getAllByRole("radio").every((radio) =>
@@ -94,7 +200,7 @@ describe("single-answer Quiz study", () => {
       outcome: "incorrect" as const,
       translationHelpUsed: true,
       recallStreak: 0,
-      correctOptionId: "bf56aef6-a583-42cb-af8a-d21a4d2a2165",
+      correctOptionIds: ["bf56aef6-a583-42cb-af8a-d21a4d2a2165"],
     }));
     render(
       <QuizStudySession
@@ -125,7 +231,7 @@ describe("single-answer Quiz study", () => {
       outcome: "incorrect" as const,
       translationHelpUsed: false,
       recallStreak: 0,
-      correctOptionId: "bf56aef6-a583-42cb-af8a-d21a4d2a2165",
+      correctOptionIds: ["bf56aef6-a583-42cb-af8a-d21a4d2a2165"],
     }));
     const next = singleQuestion({
       id: "d5766f26-f3f0-42d1-bfa4-67eadacf3042",
@@ -150,6 +256,8 @@ describe("single-answer Quiz study", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
 
     expect(await screen.findByText("Incorrect")).toBeTruthy();
+    expect((screen.getByRole("radio", { name: /sint/ }) as HTMLInputElement).checked)
+      .toBe(true);
     expect(screen.getByText("Hva betyr høflig?")).toBeTruthy();
     expect(screen.queryByText("Hva betyr ledig?")).toBeNull();
 
@@ -165,14 +273,14 @@ describe("single-answer Quiz study", () => {
       outcome: "correct";
       translationHelpUsed: false;
       recallStreak: number;
-      correctOptionId: string;
+      correctOptionIds: string[];
     }) => void) | undefined;
     const action = vi.fn(() => new Promise<{
       questionId: string;
       outcome: "correct";
       translationHelpUsed: false;
       recallStreak: number;
-      correctOptionId: string;
+      correctOptionIds: string[];
     }>((resolve) => {
       finish = resolve;
     }));
@@ -202,7 +310,7 @@ describe("single-answer Quiz study", () => {
       outcome: "correct",
       translationHelpUsed: false,
       recallStreak: 1,
-      correctOptionId: "bf56aef6-a583-42cb-af8a-d21a4d2a2165",
+      correctOptionIds: ["bf56aef6-a583-42cb-af8a-d21a4d2a2165"],
     });
     expect(await screen.findByText("Correct")).toBeTruthy();
   });

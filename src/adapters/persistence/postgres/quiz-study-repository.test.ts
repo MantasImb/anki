@@ -47,13 +47,13 @@ describe("PostgreSQL Quiz study persistence", () => {
       id: crypto.randomUUID(),
       quizId: quiz.id,
       questionId: question.id,
-      selectedOptionId: question.options[0].id,
+      selectedOptionIds: [question.options[0].id],
       translationHelpUsed: false,
     });
-    const { recallStreak, correctOptionId, ...result } = recorded;
+    const { recallStreak, correctOptionIds, ...result } = recorded;
 
     expect(recallStreak).toBe(1);
-    expect(correctOptionId).toBe(question.options[0].id);
+    expect(correctOptionIds).toEqual([question.options[0].id]);
     expect(result).toMatchObject({
       questionId: question.id,
       outcome: "correct",
@@ -62,6 +62,44 @@ describe("PostgreSQL Quiz study persistence", () => {
     expect(await study.history()).toEqual([result]);
     expect(await questions.get(quiz.id, question.id)).toMatchObject({
       recallStreak: 1,
+    });
+  });
+
+  it("records Correct only for the exact set on a multiple-answer Question", async () => {
+    const database = drizzle(client);
+    const quiz = await createCollectionService(
+      "Quiz",
+      createDrizzleQuizRepository(database),
+    ).create({ name: "Ordvalg" });
+    const questions = createQuizQuestionService(
+      createDrizzleQuizQuestionRepository(database),
+    );
+    const question = await questions.create({
+      quizId: quiz.id,
+      promptNorwegian: "Hvilke ord er positive?",
+      promptEnglish: "Which words are positive?",
+      options: [
+        { norwegian: "vennlig", english: "friendly", isCorrect: true },
+        { norwegian: "snill", english: "kind", isCorrect: true },
+        { norwegian: "sint", english: "angry", isCorrect: false },
+      ],
+    });
+    const study = createQuizStudyService(
+      createDrizzleQuizStudyRepository(database),
+    );
+
+    const recorded = await study.recordResult({
+      id: crypto.randomUUID(),
+      quizId: quiz.id,
+      questionId: question.id,
+      selectedOptionIds: [question.options[1].id, question.options[0].id],
+      translationHelpUsed: false,
+    });
+
+    expect(recorded).toMatchObject({
+      outcome: "correct",
+      recallStreak: 1,
+      correctOptionIds: [question.options[0].id, question.options[1].id],
     });
   });
 
@@ -90,7 +128,7 @@ describe("PostgreSQL Quiz study persistence", () => {
       id: crypto.randomUUID(),
       quizId: quiz.id,
       questionId: question.id,
-      selectedOptionId: question.options[0].id,
+      selectedOptionIds: [question.options[0].id],
       translationHelpUsed: false,
     };
 
@@ -142,7 +180,7 @@ describe("PostgreSQL Quiz study persistence", () => {
         id: crypto.randomUUID(),
         quizId: quiz.id,
         questionId: question.id,
-        selectedOptionId: question.options[0].id,
+        selectedOptionIds: [question.options[0].id],
         translationHelpUsed: false,
       }),
     ).rejects.toThrow();
@@ -180,7 +218,7 @@ describe("PostgreSQL Quiz study persistence", () => {
         id: crypto.randomUUID(),
         quizId: quiz.id,
         questionId: question.id,
-        selectedOptionId: correctSelection,
+        selectedOptionIds: [correctSelection],
         translationHelpUsed: false,
       });
     }
@@ -189,7 +227,7 @@ describe("PostgreSQL Quiz study persistence", () => {
       id: crypto.randomUUID(),
       quizId: quiz.id,
       questionId: question.id,
-      selectedOptionId: correctSelection,
+      selectedOptionIds: [correctSelection],
       translationHelpUsed: true,
     });
 

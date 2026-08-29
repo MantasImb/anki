@@ -27,11 +27,14 @@ export async function submitQuizAnswer(
   formData: FormData,
 ) {
   const translationHelp = formData.get("translationHelpUsed");
+  const selectedOptionIds = formData.getAll("selectedOptionIds").filter(
+    (value): value is string => typeof value === "string",
+  );
   const input: RecordQuizResult = {
     id: formData.get("attemptId") as string,
     quizId,
     questionId: formData.get("questionId") as string,
-    selectedOptionId: formData.get("selectedOptionId") as string,
+    selectedOptionIds,
     translationHelpUsed: translationHelp === "true",
   };
 
@@ -39,7 +42,8 @@ export async function submitQuizAnswer(
     !isUuid(input.id) ||
     !isUuid(input.quizId) ||
     !isUuid(input.questionId) ||
-    !isUuid(input.selectedOptionId) ||
+    input.selectedOptionIds.length === 0 ||
+    input.selectedOptionIds.some((id) => !isUuid(id)) ||
     (translationHelp !== "true" && translationHelp !== "false")
   ) {
     throw new QuizAnswerSubmissionError();
@@ -51,6 +55,6 @@ export async function submitQuizAnswer(
     outcome: recorded.outcome,
     translationHelpUsed: recorded.translationHelpUsed,
     recallStreak: recorded.recallStreak,
-    correctOptionId: recorded.correctOptionId,
+    correctOptionIds: recorded.correctOptionIds,
   };
 }

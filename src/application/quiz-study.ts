@@ -33,14 +33,14 @@ export type QuizResult = {
 
 export type RecordedQuizResult = QuizResult & {
   recallStreak: number;
-  correctOptionId: string;
+  correctOptionIds: string[];
 };
 
 export type RecordQuizResult = {
   id: string;
   quizId: string;
   questionId: string;
-  selectedOptionId: string;
+  selectedOptionIds: string[];
   translationHelpUsed: boolean;
 };
 
@@ -93,6 +93,22 @@ export function gradeSingleAnswer(
   return options.some(
     ({ id, isCorrect }) => id === selectedOptionId && isCorrect,
   )
+    ? "correct"
+    : "incorrect";
+}
+
+export function gradeMultipleAnswers(
+  options: Array<Pick<AnswerOption, "id" | "isCorrect">>,
+  selectedOptionIds: readonly string[],
+  translationHelpUsed: boolean,
+): StudyAssessment {
+  if (translationHelpUsed) return "incorrect";
+  const correctOptionIds = new Set(
+    options.filter(({ isCorrect }) => isCorrect).map(({ id }) => id),
+  );
+  const selected = new Set(selectedOptionIds);
+  return selected.size === correctOptionIds.size &&
+      [...selected].every((id) => correctOptionIds.has(id))
     ? "correct"
     : "incorrect";
 }

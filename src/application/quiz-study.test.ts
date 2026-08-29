@@ -3,6 +3,7 @@ import {
   calculateQuizProgress,
   createQuizStudyService,
   createQuizStudyScheduler,
+  gradeMultipleAnswers,
   gradeSingleAnswer,
   prepareQuizStudyQuestion,
   shuffleAnswerOptions,
@@ -71,6 +72,27 @@ describe("single-answer Quiz grading", () => {
         true,
       ),
     ).toBe("incorrect");
+  });
+});
+
+describe("multiple-answer Quiz grading", () => {
+  it("grades only the exact correct Answer Option set as Correct", () => {
+    const options = [
+      { id: "friendly", isCorrect: true },
+      { id: "kind", isCorrect: true },
+      { id: "angry", isCorrect: false },
+    ];
+
+    expect(
+      gradeMultipleAnswers(options, ["kind", "friendly"], false),
+    ).toBe("correct");
+    expect(gradeMultipleAnswers(options, ["friendly"], false)).toBe(
+      "incorrect",
+    );
+    expect(
+      gradeMultipleAnswers(options, ["friendly", "kind", "angry"], false),
+    ).toBe("incorrect");
+    expect(gradeMultipleAnswers(options, [], false)).toBe("incorrect");
   });
 });
 
@@ -202,9 +224,9 @@ class MemoryQuizStudyRepository implements QuizStudyRepository {
       ({ id, quizId }) => id === input.questionId && quizId === input.quizId,
     );
     if (!stored) throw new Error("Quiz Question was not found.");
-    const outcome = gradeSingleAnswer(
+    const outcome = gradeMultipleAnswers(
       stored.options,
-      input.selectedOptionId,
+      input.selectedOptionIds,
       input.translationHelpUsed,
     );
     stored.recallStreak = nextRecallStreak(stored.recallStreak, outcome);
@@ -219,7 +241,9 @@ class MemoryQuizStudyRepository implements QuizStudyRepository {
     const recorded: RecordedQuizResult = {
       ...result,
       recallStreak: stored.recallStreak,
-      correctOptionId: stored.options.find(({ isCorrect }) => isCorrect)!.id,
+      correctOptionIds: stored.options
+        .filter(({ isCorrect }) => isCorrect)
+        .map(({ id }) => id),
     };
     this.recordedById.set(input.id, recorded);
     return structuredClone(recorded);
@@ -247,7 +271,7 @@ describe("Quiz study session", () => {
       id: "attempt-a",
       quizId: "quiz-a",
       questionId: stored.id,
-      selectedOptionId: "question-a-correct",
+      selectedOptionIds: ["question-a-correct"],
       translationHelpUsed: false,
     });
 
@@ -273,7 +297,7 @@ describe("Quiz study session", () => {
       id: "attempt-a",
       quizId: "quiz-a",
       questionId: stored.id,
-      selectedOptionId: "question-a-correct",
+      selectedOptionIds: ["question-a-correct"],
       translationHelpUsed: true,
     });
 
@@ -293,7 +317,7 @@ describe("Quiz study session", () => {
       id: "attempt-a",
       quizId: "quiz-a",
       questionId: stored.id,
-      selectedOptionId: "question-a-correct",
+      selectedOptionIds: ["question-a-correct"],
       translationHelpUsed: false,
     };
 

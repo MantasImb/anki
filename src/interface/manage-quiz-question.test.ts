@@ -9,6 +9,36 @@ import {
 } from "./manage-quiz-question";
 
 describe("Quiz Question form submission", () => {
+  it("creates a multiple-answer Question from every marked correct option", async () => {
+    const questions = createQuizQuestionService(
+      new MemoryQuizQuestionRepository(),
+    );
+    const formData = new FormData();
+    formData.set("promptNorwegian", "Hvilke ord er positive?");
+    formData.set("promptEnglish", "Which words are positive?");
+    formData.set("options.0.norwegian", "vennlig");
+    formData.set("options.0.english", "friendly");
+    formData.set("options.1.norwegian", "snill");
+    formData.set("options.1.english", "kind");
+    formData.set("options.2.norwegian", "sint");
+    formData.set("options.2.english", "angry");
+    formData.append("correctOptions", "0");
+    formData.append("correctOptions", "1");
+
+    await submitQuizQuestionForm(questions, "quiz-a", undefined, formData);
+
+    expect(await questions.list("quiz-a")).toMatchObject([
+      {
+        choiceType: "multiple",
+        options: [
+          { isCorrect: true },
+          { isCorrect: true },
+          { isCorrect: false },
+        ],
+      },
+    ]);
+  });
+
   it("routes the translate intent to preview instead of persistence", async () => {
     const questions = createQuizQuestionService(
       new MemoryQuizQuestionRepository(),
@@ -46,7 +76,7 @@ describe("Quiz Question form submission", () => {
     formData.set("promptNorwegian", "Hva betyr høflig?");
     formData.set("options.0.norwegian", "vennlig");
     formData.set("options.1.norwegian", "sint");
-    formData.set("correctOption", "0");
+    formData.set("correctOptions", "0");
 
     await expect(
       translateQuizQuestionForm(
@@ -80,7 +110,7 @@ describe("Quiz Question form submission", () => {
     formData.set("options.1.id", "option-b");
     formData.set("options.1.norwegian", "uhøflig");
     formData.set("options.1.english", "old English");
-    formData.set("correctOption", "1");
+    formData.set("correctOptions", "1");
 
     await expect(
       translateQuizQuestionForm(
@@ -124,7 +154,7 @@ describe("Quiz Question form submission", () => {
     formData.set("options.1.id", "option-b");
     formData.set("options.1.norwegian", "sint");
     formData.set("options.1.english", "angry");
-    formData.set("correctOption", "1");
+    formData.set("correctOptions", "1");
 
     await expect(
       translateQuizQuestionForm(
@@ -185,7 +215,7 @@ describe("Quiz Question form submission", () => {
     formData.set("options.0.english", "my friendly draft");
     formData.set("options.1.norwegian", "sint");
     formData.set("options.1.english", "");
-    formData.set("correctOption", "0");
+    formData.set("correctOptions", "0");
 
     await expect(
       translateQuizQuestionForm(
@@ -223,7 +253,7 @@ describe("Quiz Question form submission", () => {
     formData.set("options.0.english", "friendly");
     formData.set("options.1.norwegian", "sint");
     formData.set("options.1.english", "angry");
-    formData.set("correctOption", "0");
+    formData.set("correctOptions", "0");
     formData.set("intent", "save-and-add-another");
 
     expect(

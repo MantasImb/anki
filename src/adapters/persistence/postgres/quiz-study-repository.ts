@@ -2,7 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { QuizQuestionNotFoundError } from "../../../application/quiz-questions";
 import {
-  gradeSingleAnswer,
+  gradeMultipleAnswers,
   type QuizResult,
   type QuizStudyRepository,
   type RecordQuizResult,
@@ -48,7 +48,8 @@ export function createDrizzleQuizStudyRepository<
         !isUuid(input.id) ||
         !isUuid(input.quizId) ||
         !isUuid(input.questionId) ||
-        !isUuid(input.selectedOptionId)
+        input.selectedOptionIds.length === 0 ||
+        input.selectedOptionIds.some((id) => !isUuid(id))
       ) {
         return Promise.reject(new QuizQuestionNotFoundError());
       }
@@ -72,16 +73,23 @@ export function createDrizzleQuizStudyRepository<
             isCorrect: schema.answerOptions.isCorrect,
           })
           .from(schema.answerOptions)
-          .where(eq(schema.answerOptions.questionId, input.questionId));
-        if (!options.some(({ id }) => id === input.selectedOptionId)) {
+          .where(eq(schema.answerOptions.questionId, input.questionId))
+          .orderBy(asc(schema.answerOptions.position));
+        if (
+          input.selectedOptionIds.some(
+            (selectedId) => !options.some(({ id }) => id === selectedId),
+          )
+        ) {
           throw new QuizQuestionNotFoundError();
         }
-        const correctOptionId = options.find(({ isCorrect }) => isCorrect)?.id;
-        if (!correctOptionId) throw new QuizQuestionNotFoundError();
+        const correctOptionIds = options
+          .filter(({ isCorrect }) => isCorrect)
+          .map(({ id }) => id);
+        if (correctOptionIds.length === 0) throw new QuizQuestionNotFoundError();
 
-        const outcome = gradeSingleAnswer(
+        const outcome = gradeMultipleAnswers(
           options,
-          input.selectedOptionId,
+          input.selectedOptionIds,
           input.translationHelpUsed,
         );
         const [created] = await transaction
@@ -106,7 +114,7 @@ export function createDrizzleQuizStudyRepository<
           return {
             ...existing,
             recallStreak: question.recallStreak,
-            correctOptionId,
+            correctOptionIds,
           };
         }
 
@@ -119,7 +127,7 @@ export function createDrizzleQuizStudyRepository<
           .set({ recallStreak })
           .where(eq(schema.quizQuestions.id, input.questionId));
 
-        return { ...created, recallStreak, correctOptionId };
+        return { ...created, recallStreak, correctOptionIds };
       });
     },
   };

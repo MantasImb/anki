@@ -12,7 +12,7 @@ export type QuizStudyAction = (formData: FormData) => Promise<{
   outcome: "correct" | "incorrect";
   translationHelpUsed: boolean;
   recallStreak: number;
-  correctOptionId: string;
+  correctOptionIds: string[];
 }>;
 
 function createAttemptId() {
@@ -61,7 +61,7 @@ export function QuizStudySession({
   const [questions, setQuestions] = useState(initialQuestions);
   const [currentQuestionId, setCurrentQuestionId] = useState(initialQuestionId);
   const [attemptId, setAttemptId] = useState(initialAttemptId);
-  const [selectedOptionId, setSelectedOptionId] = useState("");
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<
     Awaited<ReturnType<QuizStudyAction>> | undefined
   >();
@@ -108,7 +108,7 @@ export function QuizStudySession({
     setQuestions(updatedQuestions);
     setCurrentQuestionId(next?.id ?? "");
     setAttemptId(createAttemptId());
-    setSelectedOptionId("");
+    setSelectedOptionIds([]);
     setTranslationHelpUsed(false);
     setFeedback(undefined);
     setError(undefined);
@@ -140,7 +140,10 @@ export function QuizStudySession({
           Translation Help
         </button>
       ) : null}
-      <form action={formAction}>
+      <form
+        action={formAction}
+        key={`${attemptId}-${feedback ? "feedback" : "answer"}`}
+      >
         <input name="attemptId" type="hidden" value={attemptId} />
         <input name="questionId" type="hidden" value={question.id} />
         <input
@@ -149,10 +152,15 @@ export function QuizStudySession({
           value={translationHelpUsed ? "true" : "false"}
         />
         <fieldset className="mt-7 space-y-3">
-          <legend className="sr-only">Choose one Answer Option</legend>
+          <legend className="sr-only">
+            {question.choiceType === "multiple"
+              ? "Choose all correct Answer Options"
+              : "Choose one Answer Option"}
+          </legend>
           {options.map((option) => {
-            const isCorrect = feedback?.correctOptionId === option.id;
-            const isSelectedIncorrect = feedback && selectedOptionId === option.id && !isCorrect;
+            const isCorrect = feedback?.correctOptionIds.includes(option.id);
+            const isSelected = selectedOptionIds.includes(option.id);
+            const isSelectedIncorrect = feedback && isSelected && !isCorrect;
             return (
               <label
                 className={`flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
@@ -166,12 +174,22 @@ export function QuizStudySession({
               >
                 <span className="flex items-center gap-3">
                   <input
-                    checked={selectedOptionId === option.id}
+                    checked={isSelected}
                     disabled={Boolean(feedback) || pending}
-                    name="selectedOptionId"
-                    onChange={() => setSelectedOptionId(option.id)}
-                    required
-                    type="radio"
+                    name="selectedOptionIds"
+                    onChange={(event) => {
+                      if (question.choiceType === "single") {
+                        setSelectedOptionIds([option.id]);
+                        return;
+                      }
+                      setSelectedOptionIds((current) =>
+                        event.target.checked
+                          ? [...current, option.id]
+                          : current.filter((id) => id !== option.id),
+                      );
+                    }}
+                    required={question.choiceType === "single"}
+                    type={question.choiceType === "multiple" ? "checkbox" : "radio"}
                     value={option.id}
                   />
                   {translationHelpUsed ? (
@@ -217,7 +235,7 @@ export function QuizStudySession({
         ) : (
           <button
             className="mt-6 min-h-12 w-full rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400"
-            disabled={!selectedOptionId || pending}
+            disabled={selectedOptionIds.length === 0 || pending}
             type="submit"
           >
             {pending ? "Submitting…" : "Submit answer"}
