@@ -2,11 +2,12 @@ import {
   QuizQuestionNotFoundError,
   QuizQuestionValidationError,
   type QuizQuestion,
-  type QuizQuestionContent,
   type QuizQuestionFieldErrors,
+  type QuizQuestionInput,
   type createQuizQuestionService,
 } from "../application/quiz-questions";
 import type { createQuestionTranslationService } from "../application/question-translation";
+import { QuestionImageValidationError } from "../application/question-images";
 
 type QuizQuestionService = ReturnType<typeof createQuizQuestionService>;
 type QuestionTranslationService = ReturnType<
@@ -19,17 +20,17 @@ export type QuizQuestionFormState =
   | {
       status: "invalid";
       fieldErrors: QuizQuestionFieldErrors;
-      values: QuizQuestionContent;
+      values: QuizQuestionInput;
     }
   | {
       status: "translated";
       translatedCount: number;
-      values: QuizQuestionContent;
+      values: QuizQuestionInput;
     }
   | {
       status: "translation-failed";
       message: string;
-      values: QuizQuestionContent;
+      values: QuizQuestionInput;
     }
   | { status: "saved"; intent: QuizQuestionSaveIntent };
 
@@ -38,7 +39,7 @@ function textValue(formData: FormData, name: string) {
   return typeof value === "string" ? value : "";
 }
 
-function readContent(formData: FormData): QuizQuestionContent {
+function readContent(formData: FormData): QuizQuestionInput {
   const optionIndexes = [...formData.keys()]
     .flatMap((key) => {
       const match = /^options\.(\d+)\./u.exec(key);
@@ -51,6 +52,7 @@ function readContent(formData: FormData): QuizQuestionContent {
       (value): value is string => typeof value === "string",
     ),
   );
+  const imageUploadId = textValue(formData, "imageUploadId");
   return {
     promptNorwegian: textValue(formData, "promptNorwegian"),
     promptEnglish: textValue(formData, "promptEnglish"),
@@ -63,6 +65,10 @@ function readContent(formData: FormData): QuizQuestionContent {
         isCorrect: correctOptions.has(String(index)),
       };
     }),
+    ...(imageUploadId ? { imageUploadId } : {}),
+    ...(textValue(formData, "removeImage") === "true"
+      ? { removeImage: true }
+      : {}),
   };
 }
 
@@ -117,7 +123,7 @@ export async function translateQuizQuestionForm(
     const englishValues = targets.length > 0
       ? await translations.translate(targets.map(({ norwegian }) => norwegian))
       : [];
-    const translatedValues: QuizQuestionContent = {
+    const translatedValues: QuizQuestionInput = {
       ...values,
       options: values.options.map((option) => ({ ...option })),
     };
@@ -164,6 +170,13 @@ export async function submitQuizQuestionForm(
   } catch (error) {
     if (error instanceof QuizQuestionValidationError) {
       return { status: "invalid", fieldErrors: error.fieldErrors, values };
+    }
+    if (error instanceof QuestionImageValidationError) {
+      return {
+        status: "invalid",
+        fieldErrors: { image: error.message },
+        values,
+      };
     }
     throw error;
   }

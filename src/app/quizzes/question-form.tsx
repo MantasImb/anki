@@ -2,6 +2,11 @@
 
 import { useRef, useState, useActionState } from "react";
 import type { QuizQuestion } from "@/application/quiz-questions";
+import {
+  QUESTION_IMAGE_CONTENT_TYPES,
+  QUESTION_IMAGE_MAXIMUM_BYTES,
+  QUESTION_IMAGE_WARNING_BYTES,
+} from "@/application/question-images";
 import type { QuizQuestionFormState } from "@/interface/manage-quiz-question";
 
 const initialState: QuizQuestionFormState = { status: "idle" };
@@ -21,9 +26,11 @@ type EditableOption = {
 
 export function QuestionForm({
   action,
+  imageUrl,
   question,
 }: {
   action: QuestionFormAction;
+  imageUrl?: string;
   question?: QuizQuestion;
 }) {
   const nextKey = useRef(question?.options.length ?? 2);
@@ -42,10 +49,70 @@ export function QuestionForm({
       { key: "initial-1", norwegian: "", english: "", isCorrect: false },
     ],
   );
+  const [selectedImage, setSelectedImage] = useState<File>();
+  const [removeImage, setRemoveImage] = useState(false);
+  const [imageError, setImageError] = useState<string>();
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  async function responseJson(response: Response) {
+    const body = await response.json() as { message?: string; uploadId?: string; uploadUrl?: string };
+    if (!response.ok) throw new Error(body.message || "Question Image upload failed.");
+    return body;
+  }
+
+  async function uploadImage(file: File) {
+    const authorization = await responseJson(await fetch(
+      "/api/question-images/authorize",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalName: file.name,
+          contentType: file.type,
+          byteSize: file.size,
+        }),
+      },
+    ));
+    if (!authorization.uploadId || !authorization.uploadUrl) {
+      throw new Error("Question Image upload authorization was incomplete.");
+    }
+    const uploaded = await fetch(authorization.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!uploaded.ok) throw new Error("Question Image could not be uploaded.");
+    await responseJson(await fetch("/api/question-images/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadId: authorization.uploadId }),
+    }));
+    return authorization.uploadId;
+  }
+
   async function applyAction(
     previousState: QuizQuestionFormState,
     formData: FormData,
   ) {
+    setImageError(undefined);
+    if (formData.get("intent") !== "translate") {
+      try {
+        if (selectedImage) {
+          setUploadingImage(true);
+          formData.set("imageUploadId", await uploadImage(selectedImage));
+          formData.delete("removeImage");
+        } else if (removeImage) {
+          formData.set("removeImage", "true");
+        }
+      } catch (error) {
+        setImageError(
+          error instanceof Error ? error.message : "Question Image upload failed.",
+        );
+        return previousState;
+      } finally {
+        setUploadingImage(false);
+      }
+    }
     const nextState = await action(previousState, formData);
     if (
       nextState.status !== "translated" &&
@@ -131,6 +198,83 @@ export function QuestionForm({
         onChange={setPromptNorwegian}
         value={promptNorwegian}
       />
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-950">Question Image</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Optional. Choose one JPEG, PNG, WebP, or GIF, up to 25 MB.
+        </p>
+        {question?.image && imageUrl && !removeImage && !selectedImage ? (
+          <div className="mt-4">
+            {/* Direct rendering preserves browser-supported animated GIF behavior. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt="Current Question Image"
+              className="max-h-80 w-full rounded-xl object-contain"
+              src={imageUrl}
+            />
+            <p className="mt-2 text-sm text-slate-600">
+              {question.image.originalName} · {formatFileSize(question.image.byteSize)}
+            </p>
+            <button
+              className="mt-3 min-h-11 rounded-xl border border-red-200 px-4 py-2 font-semibold text-red-800"
+              onClick={() => setRemoveImage(true)}
+              type="button"
+            >
+              Remove image
+            </button>
+          </div>
+        ) : null}
+        {removeImage && !selectedImage ? (
+          <p className="mt-3 text-sm font-medium text-slate-700">
+            The current image will be removed when you save.
+          </p>
+        ) : null}
+        <label className="mt-4 block text-sm font-semibold text-slate-900" htmlFor="questionImage">
+          Question Image
+        </label>
+        <input
+          accept={QUESTION_IMAGE_CONTENT_TYPES.join(",")}
+          className="mt-2 block min-h-12 w-full rounded-xl border border-slate-300 px-3 py-2"
+          id="questionImage"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            setImageError(undefined);
+            if (!file) {
+              setSelectedImage(undefined);
+              return;
+            }
+            if (!QUESTION_IMAGE_CONTENT_TYPES.includes(
+              file.type as (typeof QUESTION_IMAGE_CONTENT_TYPES)[number],
+            )) {
+              setSelectedImage(undefined);
+              setImageError("Choose a JPEG, PNG, WebP, or GIF image.");
+              return;
+            }
+            if (file.size > QUESTION_IMAGE_MAXIMUM_BYTES) {
+              setSelectedImage(undefined);
+              setImageError("Question Images must be 25 MB or smaller.");
+              return;
+            }
+            setSelectedImage(file);
+          }}
+          type="file"
+        />
+        {selectedImage ? (
+          <p className="mt-2 text-sm text-slate-700">
+            {selectedImage.name} · {formatFileSize(selectedImage.size)}
+          </p>
+        ) : null}
+        {selectedImage && selectedImage.size > QUESTION_IMAGE_WARNING_BYTES ? (
+          <p className="mt-2 text-sm font-medium text-amber-800">
+            This image is larger than 5 MB and may take longer to upload.
+          </p>
+        ) : null}
+        {imageError ? <p className="mt-2 text-sm font-medium text-red-700" role="alert">{imageError}</p> : null}
+        {invalidState?.fieldErrors.image ? (
+          <p className="mt-2 text-sm font-medium text-red-700">{invalidState.fieldErrors.image}</p>
+        ) : null}
+      </section>
       <TextArea
         error={invalidState?.fieldErrors.promptEnglish}
         id="promptEnglish"
@@ -226,11 +370,11 @@ export function QuestionForm({
       </button>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <button className="min-h-12 rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-3 font-semibold text-emerald-900 disabled:text-slate-400" disabled={pending} name="intent" type="submit" value="translate">
+        <button className="min-h-12 rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-3 font-semibold text-emerald-900 disabled:text-slate-400" disabled={pending || uploadingImage} name="intent" type="submit" value="translate">
           {pending ? "Working…" : "Translate to English"}
         </button>
-        <button className="min-h-12 rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400" disabled={pending} name="intent" type="submit" value="save">
-          {pending ? "Saving…" : "Save Question"}
+        <button className="min-h-12 rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400" disabled={pending || uploadingImage} name="intent" type="submit" value="save">
+          {uploadingImage ? "Uploading image…" : pending ? "Saving…" : "Save Question"}
         </button>
         {!question ? (
           <button className="min-h-12 rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 disabled:text-slate-400" disabled={pending} name="intent" type="submit" value="save-and-add-another">
@@ -240,6 +384,12 @@ export function QuestionForm({
       </div>
     </form>
   );
+}
+
+function formatFileSize(byteSize: number) {
+  if (byteSize >= 1024 * 1024) return `${(byteSize / (1024 * 1024)).toFixed(1)} MB`;
+  if (byteSize >= 1024) return `${(byteSize / 1024).toFixed(1)} KB`;
+  return `${byteSize} bytes`;
 }
 
 function TextArea({

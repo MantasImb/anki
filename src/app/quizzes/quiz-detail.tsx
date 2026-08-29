@@ -8,7 +8,7 @@ export function QuizDetail({
   questions,
 }: {
   quiz: Collection;
-  questions: QuizQuestion[];
+  questions: Array<QuizQuestion & { imageUrl?: string }>;
 }) {
   const basePath = `/quizzes/${quiz.id}`;
   const progress = calculateQuizProgress(questions);
@@ -52,6 +52,17 @@ export function QuizDetail({
                   Edit Question
                 </Link>
               </div>
+              {question.image && question.imageUrl ? (
+                <>
+                  {/* Direct rendering preserves browser-supported animated GIF behavior. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    alt={`Question Image for ${question.promptNorwegian}`}
+                    className="mt-5 max-h-96 w-full rounded-xl object-contain"
+                    src={question.imageUrl}
+                  />
+                </>
+              ) : null}
               <ol className="mt-5 space-y-3">
                 {question.options.map((option) => (
                   <li className="rounded-xl bg-slate-50 px-4 py-3" key={option.id}>

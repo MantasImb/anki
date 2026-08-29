@@ -171,4 +171,30 @@ describe("Quiz Question editing", () => {
     ).rejects.toMatchObject({ name: "QuizQuestionNotFoundError" });
     expect(await questions.get("quiz-a", created.id)).toEqual(created);
   });
+
+  it("does not roll back a successful Question edit when image cleanup fails", async () => {
+    const repository = new MemoryQuizQuestionRepository();
+    const questions = createQuizQuestionService(repository, async () => {
+      throw new Error("bucket unavailable");
+    });
+    const created = await questions.create({
+      quizId: "quiz-a",
+      promptNorwegian: "Hva ser du?",
+      promptEnglish: "What do you see?",
+      options: [
+        { norwegian: "vann", english: "water", isCorrect: true },
+        { norwegian: "ild", english: "fire", isCorrect: false },
+      ],
+    });
+
+    await expect(questions.update("quiz-a", created.id, {
+      promptNorwegian: "Hva ser du her?",
+      promptEnglish: "What do you see here?",
+      options: created.options,
+      removeImage: true,
+    })).resolves.toMatchObject({ promptNorwegian: "Hva ser du her?" });
+    expect(await questions.get("quiz-a", created.id)).toMatchObject({
+      promptNorwegian: "Hva ser du her?",
+    });
+  });
 });

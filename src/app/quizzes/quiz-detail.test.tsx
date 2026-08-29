@@ -19,6 +19,13 @@ describe("Quiz detail", () => {
             promptEnglish: "What does polite mean?",
             recallStreak: 0,
             choiceType: "single",
+            image: {
+              objectKey: "question-images/a/fjord.gif",
+              originalName: "fjord.gif",
+              contentType: "image/gif",
+              byteSize: 2048,
+            },
+            imageUrl: "https://bucket.example/fjord.gif",
             options: [
               { id: "option-b", norwegian: "sint", english: "angry", isCorrect: false, position: 0 },
               { id: "option-a", norwegian: "vennlig", english: "friendly", isCorrect: true, position: 1 },
@@ -38,5 +45,7 @@ describe("Quiz detail", () => {
     ]);
     expect(screen.getByText("Quiz Progress: 0% Learned")).toBeTruthy();
     expect(screen.getByText("Recall Streak 0/3")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Question Image for Hva betyr høflig?" }))
+      .toHaveProperty("src", "https://bucket.example/fjord.gif");
   });
 });

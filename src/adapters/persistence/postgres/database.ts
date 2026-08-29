@@ -11,6 +11,7 @@ import { createDrizzleGenerationRepository } from "./generation-repository";
 import { createDrizzleStudyRepository } from "./study-repository";
 import { createDrizzleQuizQuestionRepository } from "./quiz-question-repository";
 import { createDrizzleQuizStudyRepository } from "./quiz-study-repository";
+import { createDrizzleQuestionImageUploadRepository } from "./question-image-upload-repository";
 import {
   createDrizzleFlashcardDeckRepository,
   createDrizzleQuizRepository,
@@ -101,5 +102,12 @@ export function getPostgresQuizStudyRepository() {
   return diagnose(
     createDrizzleQuizStudyRepository(getDatabase()),
     "quizStudy",
+  );
+}
+
+export function getPostgresQuestionImageUploadRepository() {
+  return diagnose(
+    createDrizzleQuestionImageUploadRepository(getDatabase()),
+    "questionImageUploads",
   );
 }

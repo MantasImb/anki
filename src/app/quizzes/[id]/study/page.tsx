@@ -7,6 +7,7 @@ import {
 } from "@/application/quiz-study";
 import { getQuizService } from "@/composition/collections";
 import { getQuizStudyService } from "@/composition/quiz-study";
+import { getQuestionImageService } from "@/composition/question-images";
 import { recordQuizStudyAnswer } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,18 @@ export default async function QuizStudyPage({
   ]);
   if (!quiz) notFound();
 
-  const questions = allQuestions.map(prepareQuizStudyQuestion);
+  const imageService = allQuestions.some(({ image }) => image)
+    ? getQuestionImageService()
+    : undefined;
+  const questions = await Promise.all(allQuestions.map(async (stored) => {
+    const question = prepareQuizStudyQuestion(stored);
+    return {
+      ...question,
+      ...(question.image && imageService
+        ? { imageUrl: await imageService.readUrl(question.image) }
+        : {}),
+    };
+  }));
   const question = createQuizStudyScheduler().next(questions);
 
   return (

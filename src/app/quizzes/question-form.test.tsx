@@ -3,9 +3,34 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { QuizQuestion } from "@/application/quiz-questions";
 import { QuestionForm } from "./question-form";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+function questionWithImage(): QuizQuestion {
+  return {
+    id: "question-a",
+    quizId: "quiz-a",
+    promptNorwegian: "Hva ser du?",
+    promptEnglish: "What do you see?",
+    recallStreak: 0,
+    choiceType: "single",
+    image: {
+      objectKey: "question-images/a/fjord.gif",
+      originalName: "fjord.gif",
+      contentType: "image/gif",
+      byteSize: 2048,
+    },
+    options: [
+      { id: "option-a", norwegian: "vann", english: "water", isCorrect: true, position: 0 },
+      { id: "option-b", norwegian: "ild", english: "fire", isCorrect: false, position: 1 },
+    ],
+  };
+}
 
 describe("Quiz Question form", () => {
   it("allows more than one Answer Option to be marked correct", async () => {
@@ -174,5 +199,140 @@ describe("Quiz Question form", () => {
     expect(submitted.get("options.0.id")).toBe("option-b");
     expect(submitted.get("options.1.id")).toBe("option-a");
     expect(submitted.getAll("correctOptions")).toEqual(["1"]);
+  });
+
+  it("shows the selected image size and a non-blocking warning above 5 MB", async () => {
+    const user = userEvent.setup();
+    render(<QuestionForm action={async () => ({ status: "idle" })} />);
+    const file = new File(
+      [new Uint8Array(5 * 1024 * 1024 + 1)],
+      "stor.png",
+      { type: "image/png" },
+    );
+
+    await user.upload(screen.getByLabelText("Question Image"), file);
+
+    expect(screen.getByText((_, element) =>
+      element?.tagName === "P" && element.textContent?.includes("5.0 MB") === true,
+    )).toBeTruthy();
+    expect(screen.getByText(/larger than 5 MB/i)).toBeTruthy();
+  });
+
+  it("rejects unsupported image types before upload", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    render(<QuestionForm action={vi.fn()} />);
+
+    await user.upload(
+      screen.getByLabelText("Question Image"),
+      new File(["document"], "notes.pdf", { type: "application/pdf" }),
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Choose a JPEG, PNG, WebP, or GIF image.",
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("uploads and completes a new image before submitting the Question", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async () => ({ status: "idle" as const }));
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        uploadId: "b4d89f5b-e0f8-41f2-86bb-87e1bb5f9c18",
+        uploadUrl: "https://bucket.example/upload",
+        expiresInSeconds: 300,
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        uploadId: "b4d89f5b-e0f8-41f2-86bb-87e1bb5f9c18",
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    render(<QuestionForm action={action} />);
+    await user.upload(
+      screen.getByLabelText("Question Image"),
+      new File(["image"], "fjord.png", { type: "image/png" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save Question" }));
+
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      "/api/question-images/authorize",
+      "https://bucket.example/upload",
+      "/api/question-images/complete",
+    ]);
+    expect((action.mock.calls[0][1] as FormData).get("imageUploadId")).toBe(
+      "b4d89f5b-e0f8-41f2-86bb-87e1bb5f9c18",
+    );
+  });
+
+  it("keeps the current image during translation and can mark it for removal", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async () => ({ status: "idle" as const }));
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    render(
+      <QuestionForm
+        action={action}
+        imageUrl="https://bucket.example/read"
+        question={{
+          id: "question-a",
+          quizId: "quiz-a",
+          promptNorwegian: "Hva ser du?",
+          promptEnglish: "What do you see?",
+          recallStreak: 0,
+          choiceType: "single",
+          image: {
+            objectKey: "question-images/a/fjord.gif",
+            originalName: "fjord.gif",
+            contentType: "image/gif",
+            byteSize: 2048,
+          },
+          options: [
+            { id: "option-a", norwegian: "vann", english: "water", isCorrect: true, position: 0 },
+            { id: "option-b", norwegian: "ild", english: "fire", isCorrect: false, position: 1 },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "Current Question Image" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Translate to English" }));
+    expect(fetch).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Remove image" }));
+    await user.click(screen.getByRole("button", { name: "Save Question" }));
+
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(2));
+    expect((action.mock.calls[1][1] as FormData).get("removeImage")).toBe("true");
+  });
+
+  it("keeps the current image when a replacement selection is cleared", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async () => ({ status: "idle" as const }));
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    render(
+      <QuestionForm
+        action={action}
+        imageUrl="https://bucket.example/read"
+        question={questionWithImage()}
+      />,
+    );
+    const input = screen.getByLabelText("Question Image");
+
+    await user.upload(
+      input,
+      new File(["replacement"], "replacement.png", { type: "image/png" }),
+    );
+    expect(screen.queryByRole("img", { name: "Current Question Image" })).toBeNull();
+    await user.upload(input, []);
+    expect(screen.getByRole("img", { name: "Current Question Image" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save Question" }));
+
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+    expect((action.mock.calls[0][1] as FormData).get("removeImage")).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

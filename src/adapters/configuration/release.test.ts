@@ -9,6 +9,12 @@ const providerConfiguration = {
   }),
   OPENAI_API_KEY: "sk-test-secret",
   OPENAI_MODEL: "gpt-test",
+  RAILWAY_BUCKET_ENDPOINT: "https://storage.railway.app",
+  RAILWAY_BUCKET_REGION: "auto",
+  RAILWAY_BUCKET_NAME: "question-images",
+  RAILWAY_BUCKET_ACCESS_KEY_ID: "bucket-access",
+  RAILWAY_BUCKET_SECRET_ACCESS_KEY: "bucket-secret",
+  QUESTION_IMAGE_ALLOWED_ORIGINS: "http://localhost:3000",
 };
 
 describe("release configuration", () => {

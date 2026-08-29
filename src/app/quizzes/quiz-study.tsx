@@ -54,7 +54,7 @@ export function QuizStudySession({
   action: QuizStudyAction;
   initialAttemptId: string;
   initialQuestionId: string;
-  questions: QuizStudyQuestion[];
+  questions: Array<QuizStudyQuestion & { imageUrl?: string }>;
   random?: () => number;
 }) {
   const scheduler = useRef(createQuizStudyScheduler(random ?? Math.random));
@@ -130,6 +130,17 @@ export function QuizStudySession({
           {question.promptNorwegian}
         </p>
       )}
+      {question.image && question.imageUrl ? (
+        <>
+          {/* Direct rendering preserves browser-supported animated GIF behavior. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt="Question Image"
+            className="mt-5 max-h-96 w-full rounded-xl object-contain"
+            src={question.imageUrl}
+          />
+        </>
+      ) : null}
       {!feedback ? (
         <button
           className="mt-5 min-h-11 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 font-semibold text-sky-800"

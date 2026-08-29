@@ -11,7 +11,12 @@ export type QuizQuestionContent = {
   options: AnswerOptionContent[];
 };
 
-export type NewQuizQuestion = QuizQuestionContent & {
+export type QuizQuestionInput = QuizQuestionContent & {
+  imageUploadId?: string;
+  removeImage?: boolean;
+};
+
+export type NewQuizQuestion = QuizQuestionInput & {
   quizId: string;
 };
 
@@ -20,21 +25,28 @@ export type AnswerOption = Omit<AnswerOptionContent, "id"> & {
   position: number;
 };
 
-export type QuizQuestion = Omit<NewQuizQuestion, "options"> & {
+export type QuizQuestion = Omit<NewQuizQuestion, "options" | "imageUploadId" | "removeImage"> & {
   id: string;
   recallStreak: number;
   choiceType: "single" | "multiple";
   options: AnswerOption[];
+  image?: import("./question-images").QuestionImage;
 };
 
+export type QuestionImageChange =
+  | { kind: "keep" }
+  | { kind: "attach"; uploadId: string }
+  | { kind: "remove" };
+
 export interface QuizQuestionRepository {
-  create(question: QuizQuestion): Promise<QuizQuestion>;
+  create(question: QuizQuestion, imageUploadId?: string): Promise<QuizQuestion>;
   get(quizId: string, id: string): Promise<QuizQuestion | undefined>;
   list(quizId: string): Promise<QuizQuestion[]>;
   update(
     quizId: string,
     id: string,
     question: QuizQuestion,
+    imageChange?: QuestionImageChange,
   ): Promise<QuizQuestion | undefined>;
 }
 
@@ -43,6 +55,7 @@ export type QuizQuestionFieldErrors = {
   promptEnglish?: string;
   options?: string;
   correctness?: string;
+  image?: string;
   optionErrors?: Array<{ norwegian?: string; english?: string }>;
 };
 
@@ -94,7 +107,7 @@ function validateQuestion(input: QuizQuestionContent) {
 
 function prepareQuestion(
   input: NewQuizQuestion,
-  existing?: Pick<QuizQuestion, "id" | "recallStreak">,
+  existing?: Pick<QuizQuestion, "id" | "recallStreak" | "image">,
 ): QuizQuestion {
   const options = input.options.map((option, position) => ({
     id: option.id ?? crypto.randomUUID(),
@@ -114,14 +127,18 @@ function prepareQuestion(
       ? "single"
       : "multiple",
     options,
+    ...(existing?.image ? { image: existing.image } : {}),
   };
 }
 
-export function createQuizQuestionService(repository: QuizQuestionRepository) {
+export function createQuizQuestionService(
+  repository: QuizQuestionRepository,
+  cleanupImages: () => Promise<unknown> = async () => undefined,
+) {
   return {
     async create(input: NewQuizQuestion) {
       validateQuestion(input);
-      return repository.create(prepareQuestion(input));
+      return repository.create(prepareQuestion(input), input.imageUploadId);
     },
     get(quizId: string, id: string) {
       return repository.get(quizId, id);
@@ -132,17 +149,30 @@ export function createQuizQuestionService(repository: QuizQuestionRepository) {
     async update(
       quizId: string,
       id: string,
-      input: QuizQuestionContent,
+      input: QuizQuestionInput,
     ) {
       validateQuestion(input);
       const existing = await repository.get(quizId, id);
       if (!existing) throw new QuizQuestionNotFoundError();
+      const imageChange: QuestionImageChange = input.imageUploadId
+        ? { kind: "attach", uploadId: input.imageUploadId }
+        : input.removeImage
+          ? { kind: "remove" }
+          : { kind: "keep" };
       const updated = await repository.update(
         quizId,
         id,
         prepareQuestion({ quizId, ...input }, existing),
+        imageChange,
       );
       if (!updated) throw new QuizQuestionNotFoundError();
+      if (imageChange.kind !== "keep") {
+        try {
+          await cleanupImages();
+        } catch {
+          // The committed Question change is authoritative; queued cleanup retries later.
+        }
+      }
       return updated;
     },
   };

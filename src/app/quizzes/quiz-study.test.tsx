@@ -207,7 +207,17 @@ describe("single-answer Quiz study", () => {
         action={action}
         initialAttemptId="8de9e5d4-2788-47af-8767-d1a4b6a1b0fd"
         initialQuestionId="420d7e63-b4e4-4f5c-b88d-93ab42add48a"
-        questions={[prepareQuizStudyQuestion(singleQuestion())]}
+        questions={[{
+          ...prepareQuizStudyQuestion(singleQuestion({
+            image: {
+              objectKey: "question-images/a/fjord.gif",
+              originalName: "fjord.gif",
+              contentType: "image/gif",
+              byteSize: 2048,
+            },
+          })),
+          imageUrl: "https://bucket.example/fjord.gif",
+        }]}
         random={() => 0.9}
       />,
     );
@@ -217,6 +227,10 @@ describe("single-answer Quiz study", () => {
     expect(screen.getByText("What does polite mean?")).toBeTruthy();
     expect(screen.getByText("Hva betyr høflig?")).toBeTruthy();
     expect(screen.getByRole("radio", { name: /friendly.*vennlig/i })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Question Image" })).toHaveProperty(
+      "src",
+      "https://bucket.example/fjord.gif",
+    );
 
     await userEvent.click(screen.getByRole("radio", { name: /friendly.*vennlig/i }));
     await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));

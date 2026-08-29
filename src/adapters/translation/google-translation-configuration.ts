@@ -9,7 +9,9 @@ type GoogleServiceAccountCredentials = {
 
 function parseCredentials(value: string): GoogleServiceAccountCredentials {
   try {
-    const parsed = JSON.parse(value) as Partial<GoogleServiceAccountCredentials>;
+    const parsed = JSON.parse(
+      value,
+    ) as Partial<GoogleServiceAccountCredentials>;
     if (!parsed.client_email?.trim() || !parsed.private_key?.trim()) {
       throw new Error("Incomplete credentials");
     }
@@ -24,12 +26,14 @@ function parseCredentials(value: string): GoogleServiceAccountCredentials {
   }
 }
 
-export function requireGoogleTranslationConfiguration(environment: Environment) {
+export function requireGoogleTranslationConfiguration(
+  environment: Environment,
+) {
   const projectId = environment.GOOGLE_CLOUD_PROJECT_ID?.trim();
   const credentialsJson =
     environment.GOOGLE_CLOUD_TRANSLATION_CREDENTIALS?.trim();
-  const location = environment.GOOGLE_CLOUD_TRANSLATION_LOCATION?.trim() ||
-    "global";
+  const location =
+    environment.GOOGLE_CLOUD_TRANSLATION_LOCATION?.trim() || "global";
   const timeoutMilliseconds =
     environment.GOOGLE_CLOUD_TRANSLATION_TIMEOUT_MS?.trim()
       ? Number(environment.GOOGLE_CLOUD_TRANSLATION_TIMEOUT_MS)

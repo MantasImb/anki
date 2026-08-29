@@ -59,6 +59,11 @@ export const quizQuestions = pgTable(
     promptNorwegian: text("prompt_norwegian").notNull(),
     promptEnglish: text("prompt_english").notNull(),
     recallStreak: integer("recall_streak").default(0).notNull(),
+    imageObjectKey: text("image_object_key").unique(),
+    imageOriginalName: text("image_original_name"),
+    imageContentType: text("image_content_type")
+      .$type<"image/jpeg" | "image/png" | "image/webp" | "image/gif">(),
+    imageByteSize: integer("image_byte_size"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -76,8 +81,55 @@ export const quizQuestions = pgTable(
       "quiz_questions_recall_streak_valid",
       sql`${table.recallStreak} between 0 and 3`,
     ),
+    check(
+      "quiz_questions_image_metadata_complete",
+      sql`(${table.imageObjectKey} is null and ${table.imageOriginalName} is null and ${table.imageContentType} is null and ${table.imageByteSize} is null) or (${table.imageObjectKey} is not null and ${table.imageOriginalName} is not null and ${table.imageContentType} in ('image/jpeg', 'image/png', 'image/webp', 'image/gif') and ${table.imageByteSize} between 1 and 26214400)`,
+    ),
   ],
 );
+
+export const questionImageUploads = pgTable(
+  "question_image_uploads",
+  {
+    id: uuid("id").primaryKey(),
+    objectKey: text("object_key").notNull().unique(),
+    originalName: text("original_name").notNull(),
+    contentType: text("content_type")
+      .$type<"image/jpeg" | "image/png" | "image/webp" | "image/gif">()
+      .notNull(),
+    byteSize: integer("byte_size").notNull(),
+    status: text("status")
+      .$type<"pending" | "completed" | "attached">()
+      .default("pending")
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "question_image_uploads_content_type_valid",
+      sql`${table.contentType} in ('image/jpeg', 'image/png', 'image/webp', 'image/gif')`,
+    ),
+    check(
+      "question_image_uploads_byte_size_valid",
+      sql`${table.byteSize} between 1 and 26214400`,
+    ),
+    check(
+      "question_image_uploads_status_valid",
+      sql`${table.status} in ('pending', 'completed', 'attached')`,
+    ),
+  ],
+);
+
+export const questionImageCleanup = pgTable("question_image_cleanup", {
+  objectKey: text("object_key").primaryKey(),
+  attempts: integer("attempts").default(0).notNull(),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
 
 export const answerOptions = pgTable(
   "answer_options",

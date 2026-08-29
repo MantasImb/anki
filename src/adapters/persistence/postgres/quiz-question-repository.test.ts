@@ -4,8 +4,10 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createCollectionService } from "../../../application/collections";
 import { createQuizQuestionService } from "../../../application/quiz-questions";
+import { createQuestionImageService } from "../../../application/question-images";
 import { createDrizzleQuizRepository } from "./collection-repository";
 import { createDrizzleQuizQuestionRepository } from "./quiz-question-repository";
+import { createDrizzleQuestionImageUploadRepository } from "./question-image-upload-repository";
 
 describe("PostgreSQL Quiz Question persistence", () => {
   let client: PGlite;
@@ -171,5 +173,138 @@ describe("PostgreSQL Quiz Question persistence", () => {
       promptEnglish: "What happens?",
     });
     expect(updated).toEqual(await repository.get(quiz.id, created.id));
+  });
+
+  it("attaches only a completed upload and persists stable image metadata", async () => {
+    const database = drizzle(client);
+    const quiz = await createCollectionService(
+      "Quiz",
+      createDrizzleQuizRepository(database),
+    ).create({ name: "Bilder" });
+    const uploadRepository = createDrizzleQuestionImageUploadRepository(database);
+    const storage = {
+      presignUpload: async () => "https://bucket.example/upload",
+      presignRead: async () => "https://bucket.example/read",
+      head: async () => ({ contentType: "image/png", byteSize: 2048 }),
+      delete: async () => undefined,
+    };
+    const images = createQuestionImageService(storage, uploadRepository);
+    const questions = createQuizQuestionService(
+      createDrizzleQuizQuestionRepository(database),
+    );
+    const authorization = await images.authorize({
+      originalName: "fjord.png",
+      contentType: "image/png",
+      byteSize: 2048,
+    });
+
+    await expect(questions.create({
+      quizId: quiz.id,
+      promptNorwegian: "Hvor er dette?",
+      promptEnglish: "Where is this?",
+      imageUploadId: authorization.uploadId,
+      options: [
+        { norwegian: "en fjord", english: "a fjord", isCorrect: true },
+        { norwegian: "en by", english: "a city", isCorrect: false },
+      ],
+    })).rejects.toThrow("Finish uploading the Question Image before saving.");
+    expect(await questions.list(quiz.id)).toEqual([]);
+
+    await images.complete(authorization.uploadId);
+    const created = await questions.create({
+      quizId: quiz.id,
+      promptNorwegian: "Hvor er dette?",
+      promptEnglish: "Where is this?",
+      imageUploadId: authorization.uploadId,
+      options: [
+        { norwegian: "en fjord", english: "a fjord", isCorrect: true },
+        { norwegian: "en by", english: "a city", isCorrect: false },
+      ],
+    });
+
+    expect(created.image).toMatchObject({
+      objectKey: expect.stringMatching(/^question-images\//),
+      originalName: "fjord.png",
+      contentType: "image/png",
+      byteSize: 2048,
+    });
+    expect(await questions.get(quiz.id, created.id)).toEqual(created);
+
+    const repository = createDrizzleQuizQuestionRepository(database);
+    const textOnlyUpdate = await repository.update(quiz.id, created.id, {
+      ...created,
+      image: undefined,
+      promptEnglish: "Where was this photographed?",
+    });
+    expect(textOnlyUpdate).toMatchObject({
+      promptEnglish: "Where was this photographed?",
+      image: created.image,
+    });
+  });
+
+  it("updates the Question before making a replaced or removed image retryable for cleanup", async () => {
+    const database = drizzle(client);
+    const quiz = await createCollectionService(
+      "Quiz",
+      createDrizzleQuizRepository(database),
+    ).create({ name: "Bilder" });
+    const uploadRepository = createDrizzleQuestionImageUploadRepository(database);
+    const images = createQuestionImageService({
+      presignUpload: async () => "https://bucket.example/upload",
+      presignRead: async () => "https://bucket.example/read",
+      head: async (objectKey) => ({
+        contentType: objectKey.endsWith("replacement.gif") ? "image/gif" : "image/png",
+        byteSize: objectKey.endsWith("replacement.gif") ? 4096 : 2048,
+      }),
+      delete: async () => undefined,
+    }, uploadRepository);
+    const questions = createQuizQuestionService(
+      createDrizzleQuizQuestionRepository(database),
+    );
+    const first = await images.authorize({
+      originalName: "first.png",
+      contentType: "image/png",
+      byteSize: 2048,
+    });
+    await images.complete(first.uploadId);
+    const created = await questions.create({
+      quizId: quiz.id,
+      promptNorwegian: "Hva ser du?",
+      promptEnglish: "What do you see?",
+      imageUploadId: first.uploadId,
+      options: [
+        { norwegian: "vann", english: "water", isCorrect: true },
+        { norwegian: "ild", english: "fire", isCorrect: false },
+      ],
+    });
+    const replacement = await images.authorize({
+      originalName: "replacement.gif",
+      contentType: "image/gif",
+      byteSize: 4096,
+    });
+    await images.complete(replacement.uploadId);
+
+    const replaced = await questions.update(quiz.id, created.id, {
+      promptNorwegian: created.promptNorwegian,
+      promptEnglish: created.promptEnglish,
+      options: created.options,
+      imageUploadId: replacement.uploadId,
+    });
+    expect(replaced?.image?.originalName).toBe("replacement.gif");
+    expect(await uploadRepository.listCleanup()).toEqual([
+      created.image?.objectKey,
+    ]);
+
+    const removed = await questions.update(quiz.id, created.id, {
+      promptNorwegian: created.promptNorwegian,
+      promptEnglish: created.promptEnglish,
+      options: created.options,
+      removeImage: true,
+    });
+    expect(removed?.image).toBeUndefined();
+    expect(await uploadRepository.listCleanup()).toEqual([
+      created.image?.objectKey,
+      replaced?.image?.objectKey,
+    ]);
   });
 });

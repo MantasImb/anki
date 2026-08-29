@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { QuestionForm } from "@/app/quizzes/question-form";
 import { getQuizService } from "@/composition/collections";
 import { getQuizQuestionService } from "@/composition/quiz-questions";
+import { getQuestionImageService } from "@/composition/question-images";
 import { saveQuestionEdit } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,9 @@ export default async function EditQuestionPage({
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Edit Question</h1>
       <QuestionForm
         action={saveQuestionEdit.bind(null, id, questionId)}
+        imageUrl={question.image
+          ? await getQuestionImageService().readUrl(question.image)
+          : undefined}
         question={question}
       />
     </main>

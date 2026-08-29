@@ -55,6 +55,12 @@ GOOGLE_CLOUD_PROJECT_ID=your-google-cloud-project-id
 GOOGLE_CLOUD_TRANSLATION_CREDENTIALS='{"client_email":"translator@example.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"}'
 GOOGLE_CLOUD_TRANSLATION_LOCATION=global
 GOOGLE_CLOUD_TRANSLATION_TIMEOUT_MS=10000
+RAILWAY_BUCKET_ENDPOINT=https://storage.railway.app
+RAILWAY_BUCKET_REGION=auto
+RAILWAY_BUCKET_NAME=your-railway-bucket-name
+RAILWAY_BUCKET_ACCESS_KEY_ID=your-railway-bucket-access-key
+RAILWAY_BUCKET_SECRET_ACCESS_KEY=your-railway-bucket-secret-key
+QUESTION_IMAGE_ALLOWED_ORIGINS=http://localhost:3000,https://your-app.vercel.app
 ```
 
 `SOURCE_TEXT_MAX_CHARACTERS` is optional and defaults to `20000`. It limits a
@@ -67,6 +73,35 @@ Enable Cloud Translation Advanced for the configured Google Cloud project and
 store a service account JSON key as the one-line
 `GOOGLE_CLOUD_TRANSLATION_CREDENTIALS` value. The location and timeout are
 optional and default to `global` and `10000` milliseconds.
+
+Create a private Railway Bucket and copy its S3-compatible endpoint, region,
+bucket name, access key, and secret key into the matching variables above.
+Then configure browser-upload CORS:
+
+1. Install the AWS CLI with `brew install awscli`.
+2. Load the environment variables with `set -a; source .env; set +a`. Use
+   `.env.local` instead if that is where the variables are stored.
+3. Apply a rule that allows `PUT`, upload headers, and every origin listed in
+   `QUESTION_IMAGE_ALLOWED_ORIGINS`:
+
+```bash
+AWS_ACCESS_KEY_ID="$RAILWAY_BUCKET_ACCESS_KEY_ID" \
+AWS_SECRET_ACCESS_KEY="$RAILWAY_BUCKET_SECRET_ACCESS_KEY" \
+aws s3api put-bucket-cors \
+  --bucket "$RAILWAY_BUCKET_NAME" \
+  --endpoint-url "$RAILWAY_BUCKET_ENDPOINT" \
+  --region "$RAILWAY_BUCKET_REGION" \
+  --cors-configuration '{"CORSRules":[{"AllowedHeaders":["*"],"AllowedMethods":["PUT"],"AllowedOrigins":["http://localhost:3000","https://your-app.vercel.app"],"MaxAgeSeconds":3000}]}'
+```
+
+4. Verify the live rule without printing credentials:
+
+```bash
+bun run bucket:cors:verify
+```
+
+Replace `https://your-app.vercel.app` in both the environment variable and the
+CORS command with each real Preview or Production origin before deployment.
 
 Apply every versioned database migration, then start the application:
 
@@ -110,15 +145,21 @@ Add the same variables to the application's protected deployment environment:
   `global`).
 - `GOOGLE_CLOUD_TRANSLATION_TIMEOUT_MS` — optional request timeout in
   milliseconds (defaults to `10000`).
+- `RAILWAY_BUCKET_ENDPOINT`, `RAILWAY_BUCKET_REGION`,
+  `RAILWAY_BUCKET_NAME`, `RAILWAY_BUCKET_ACCESS_KEY_ID`, and
+  `RAILWAY_BUCKET_SECRET_ACCESS_KEY` — private S3-compatible bucket settings.
+- `QUESTION_IMAGE_ALLOWED_ORIGINS` — comma-separated local, Preview, and
+  Production browser origins allowed to upload directly by bucket CORS.
 
 Apply migrations to the production database before using a deployment. Do not
-expose either credential to browser code.
+expose database, provider, or bucket credentials to browser code.
 
 Set these values in Vercel's **Preview** and **Production** environments as
 appropriate. Never create `NEXT_PUBLIC_DATABASE_URL` or
 `NEXT_PUBLIC_OPENAI_API_KEY`. Also never expose Google credentials under
 `NEXT_PUBLIC_GOOGLE_CLOUD_TRANSLATION_CREDENTIALS`; startup validation rejects
-these names so credentials cannot be bundled for browser use.
+these names so credentials cannot be bundled for browser use. Bucket access
+keys and secrets must never use a `NEXT_PUBLIC_` prefix either.
 
 The generated Vercel URL is publicly reachable. V1 intentionally has no
 accounts, authorization, or Vercel Deployment Protection, so do not store
