@@ -307,4 +307,57 @@ describe("PostgreSQL Quiz Question persistence", () => {
       replaced?.image?.objectKey,
     ]);
   });
+
+  it("deletes only the scoped Question and queues its image for cleanup", async () => {
+    const database = drizzle(client);
+    const quizzes = createCollectionService(
+      "Quiz",
+      createDrizzleQuizRepository(database),
+    );
+    const quiz = await quizzes.create({ name: "Slett bilde" });
+    const otherQuiz = await quizzes.create({ name: "Behold bilde" });
+    const uploadRepository = createDrizzleQuestionImageUploadRepository(database);
+    const images = createQuestionImageService({
+      presignUpload: async () => "https://bucket.example/upload",
+      presignRead: async () => "https://bucket.example/read",
+      head: async () => ({ contentType: "image/png", byteSize: 2048 }),
+      delete: async () => undefined,
+    }, uploadRepository);
+    const upload = await images.authorize({
+      originalName: "fjord.png",
+      contentType: "image/png",
+      byteSize: 2048,
+    });
+    await images.complete(upload.uploadId);
+    const questions = createQuizQuestionService(
+      createDrizzleQuizQuestionRepository(database),
+    );
+    const deleted = await questions.create({
+      quizId: quiz.id,
+      promptNorwegian: "Hva ser du?",
+      promptEnglish: "What do you see?",
+      imageUploadId: upload.uploadId,
+      options: [
+        { norwegian: "en fjord", english: "a fjord", isCorrect: true },
+        { norwegian: "en by", english: "a city", isCorrect: false },
+      ],
+    });
+    const retained = await questions.create({
+      quizId: otherQuiz.id,
+      promptNorwegian: "Hva hører du?",
+      promptEnglish: "What do you hear?",
+      options: [
+        { norwegian: "musikk", english: "music", isCorrect: true },
+        { norwegian: "regn", english: "rain", isCorrect: false },
+      ],
+    });
+
+    await questions.delete(quiz.id, deleted.id);
+
+    expect(await questions.list(quiz.id)).toEqual([]);
+    expect(await questions.list(otherQuiz.id)).toEqual([retained]);
+    expect(await uploadRepository.listCleanup()).toEqual([
+      deleted.image?.objectKey,
+    ]);
+  });
 });

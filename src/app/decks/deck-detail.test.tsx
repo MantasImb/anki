@@ -6,11 +6,14 @@ import { DeckDetail } from "./deck-detail";
 
 afterEach(cleanup);
 
+const deleteAction = async () => ({ status: "idle" as const });
+
 describe("Flashcard Deck detail", () => {
   it("shows an empty state without Deck Progress", () => {
     render(
       <DeckDetail
         deck={{ id: "deck-a", name: "På vei" }}
+        deleteAction={deleteAction}
         flashcards={[]}
       />,
     );
@@ -23,6 +26,7 @@ describe("Flashcard Deck detail", () => {
     render(
       <DeckDetail
         deck={{ id: "deck-a", name: "På vei" }}
+        deleteAction={deleteAction}
         flashcards={[
           {
             id: "card-a",
@@ -51,6 +55,7 @@ describe("Flashcard Deck detail", () => {
     render(
       <DeckDetail
         deck={{ id: "deck-a", name: "På vei" }}
+        deleteAction={deleteAction}
         flashcards={[
           {
             id: "card-a",
@@ -80,6 +85,7 @@ describe("Flashcard Deck detail", () => {
     render(
       <DeckDetail
         deck={{ id: "deck-a", name: "På vei" }}
+        deleteAction={deleteAction}
         flashcards={[
           {
             id: "card-a",

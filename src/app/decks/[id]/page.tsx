@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getFlashcardDeckService } from "@/composition/collections";
 import { getFlashcardService } from "@/composition/flashcards";
 import { DeckDetail } from "../deck-detail";
+import { deleteDeck } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,5 +17,11 @@ export default async function DeckPage({
     getFlashcardService().list(id),
   ]);
   if (!deck) notFound();
-  return <DeckDetail deck={deck} flashcards={flashcards} />;
+  return (
+    <DeckDetail
+      deck={deck}
+      deleteAction={deleteDeck.bind(null, deck.id)}
+      flashcards={flashcards}
+    />
+  );
 }

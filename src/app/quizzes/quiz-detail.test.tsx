@@ -10,6 +10,7 @@ describe("Quiz detail", () => {
   it("lists Questions in management order with Quiz-scoped actions", () => {
     render(
       <QuizDetail
+        deleteAction={async () => ({ status: "idle" })}
         quiz={{ id: "quiz-a", name: "På vei" }}
         questions={[
           {

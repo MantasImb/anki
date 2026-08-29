@@ -289,5 +289,23 @@ export function createDrizzleQuizQuestionRepository<
         return hydrate(storedQuestion, storedOptions);
       });
     },
+
+    async delete(quizId, id) {
+      if (!isUuid(quizId) || !isUuid(id)) return false;
+      return database.transaction(async (transaction) => {
+        const [deleted] = await transaction
+          .delete(schema.quizQuestions)
+          .where(
+            and(
+              eq(schema.quizQuestions.quizId, quizId),
+              eq(schema.quizQuestions.id, id),
+            ),
+          )
+          .returning({ imageObjectKey: schema.quizQuestions.imageObjectKey });
+        if (!deleted) return false;
+        await queueCleanup(transaction, deleted.imageObjectKey);
+        return true;
+      });
+    },
   };
 }

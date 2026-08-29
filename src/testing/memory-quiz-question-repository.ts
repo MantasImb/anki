@@ -35,6 +35,15 @@ export class MemoryQuizQuestionRepository implements QuizQuestionRepository {
     return structuredClone(updated);
   }
 
+  async delete(quizId: string, id: string) {
+    const index = this.questions.findIndex(
+      (question) => question.quizId === quizId && question.id === id,
+    );
+    if (index === -1) return false;
+    this.questions.splice(index, 1);
+    return true;
+  }
+
   setRecallStreak(id: string, recallStreak: number) {
     const question = this.questions.find((candidate) => candidate.id === id);
     if (question) question.recallStreak = recallStreak;

@@ -2,13 +2,22 @@ import Link from "next/link";
 import type { Collection } from "@/application/collections";
 import type { QuizQuestion } from "@/application/quiz-questions";
 import { calculateQuizProgress } from "@/application/quiz-study";
+import {
+  DeleteCollectionForm,
+  type DeleteCollectionFormState,
+} from "@/app/collections/delete-collection-form";
 
 export function QuizDetail({
   quiz,
   questions,
+  deleteAction,
 }: {
   quiz: Collection;
   questions: Array<QuizQuestion & { imageUrl?: string }>;
+  deleteAction: (
+    state: DeleteCollectionFormState,
+    formData: FormData,
+  ) => Promise<DeleteCollectionFormState>;
 }) {
   const basePath = `/quizzes/${quiz.id}`;
   const progress = calculateQuizProgress(questions);
@@ -76,6 +85,19 @@ export function QuizDetail({
           ))}
         </div>
       )}
+      <section className="mt-12 border-t border-slate-200 pt-8">
+        <h2 className="text-lg font-semibold text-slate-950">Danger zone</h2>
+        <p className="mt-2 max-w-xl leading-7 text-slate-600">
+          Deleting this Quiz permanently removes all of its active Questions.
+          Quiz Result history is retained.
+        </p>
+        <DeleteCollectionForm
+          action={deleteAction}
+          collectionType="Quiz"
+          itemCount={questions.length}
+          itemName="Question"
+        />
+      </section>
     </main>
   );
 }

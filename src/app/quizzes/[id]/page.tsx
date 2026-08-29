@@ -3,6 +3,7 @@ import { QuizDetail } from "@/app/quizzes/quiz-detail";
 import { getQuizService } from "@/composition/collections";
 import { getQuizQuestionService } from "@/composition/quiz-questions";
 import { getQuestionImageService } from "@/composition/question-images";
+import { deleteQuiz } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,5 +25,11 @@ export default async function QuizPage({
       ? { imageUrl: await images.readUrl(question.image) }
       : {}),
   })));
-  return <QuizDetail quiz={quiz} questions={displayQuestions} />;
+  return (
+    <QuizDetail
+      deleteAction={deleteQuiz.bind(null, quiz.id)}
+      quiz={quiz}
+      questions={displayQuestions}
+    />
+  );
 }

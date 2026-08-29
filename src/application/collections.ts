@@ -13,6 +13,14 @@ export interface CollectionRepository {
   ): Promise<Collection | undefined>;
   get(id: string): Promise<Collection | undefined>;
   list(): Promise<Collection[]>;
+  delete(id: string): Promise<boolean>;
+}
+
+export class CollectionNotFoundError extends Error {
+  constructor() {
+    super("Collection was not found.");
+    this.name = "CollectionNotFoundError";
+  }
 }
 
 export class CollectionNameValidationError extends Error {
@@ -44,6 +52,7 @@ function normalizeDisplayName(name: string) {
 export function createCollectionService(
   collectionType: "Flashcard Deck" | "Quiz",
   repository: CollectionRepository,
+  cleanup: () => Promise<unknown> = async () => undefined,
 ) {
   return {
     async create(input: NewCollection) {
@@ -66,6 +75,16 @@ export function createCollectionService(
     },
     list() {
       return repository.list();
+    },
+    async delete(id: string) {
+      if (!await repository.delete(id)) {
+        throw new CollectionNotFoundError();
+      }
+      try {
+        await cleanup();
+      } catch {
+        // The committed deletion is authoritative; queued cleanup retries later.
+      }
     },
   };
 }

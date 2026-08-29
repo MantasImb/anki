@@ -52,6 +52,14 @@ export function createDrizzleFlashcardDeckRepository<
           asc(schema.flashcardDecks.id),
         );
     },
+    async delete(id: string) {
+      if (!isUuid(id)) return false;
+      const deleted = await database
+        .delete(schema.flashcardDecks)
+        .where(eq(schema.flashcardDecks.id, id))
+        .returning({ id: schema.flashcardDecks.id });
+      return deleted.length > 0;
+    },
   };
 }
 
@@ -82,6 +90,36 @@ export function createDrizzleQuizRepository<TResult extends PgQueryResultHKT>(
         .select({ id: schema.quizzes.id, name: schema.quizzes.name })
         .from(schema.quizzes)
         .orderBy(asc(schema.quizzes.createdAt), asc(schema.quizzes.id));
+    },
+    async delete(id: string) {
+      if (!isUuid(id)) return false;
+      return database.transaction(async (transaction) => {
+        const [quiz] = await transaction
+          .select({ id: schema.quizzes.id })
+          .from(schema.quizzes)
+          .where(eq(schema.quizzes.id, id))
+          .for("update");
+        if (!quiz) return false;
+        const images = await transaction
+          .select({ objectKey: schema.quizQuestions.imageObjectKey })
+          .from(schema.quizQuestions)
+          .where(eq(schema.quizQuestions.quizId, id))
+          .for("update");
+        const objectKeys = images.flatMap(({ objectKey }) =>
+          objectKey ? [{ objectKey }] : []
+        );
+        if (objectKeys.length > 0) {
+          await transaction
+            .insert(schema.questionImageCleanup)
+            .values(objectKeys)
+            .onConflictDoNothing();
+        }
+        const deleted = await transaction
+          .delete(schema.quizzes)
+          .where(eq(schema.quizzes.id, id))
+          .returning({ id: schema.quizzes.id });
+        return deleted.length > 0;
+      });
     },
   };
 }

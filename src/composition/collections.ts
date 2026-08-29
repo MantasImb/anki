@@ -3,6 +3,7 @@ import {
   getPostgresQuizRepository,
 } from "../adapters/persistence/postgres/database";
 import { createCollectionService } from "../application/collections";
+import { getQuestionImageService } from "./question-images";
 
 export function getFlashcardDeckService() {
   return createCollectionService(
@@ -12,5 +13,9 @@ export function getFlashcardDeckService() {
 }
 
 export function getQuizService() {
-  return createCollectionService("Quiz", getPostgresQuizRepository());
+  return createCollectionService(
+    "Quiz",
+    getPostgresQuizRepository(),
+    () => getQuestionImageService().cleanup(),
+  );
 }

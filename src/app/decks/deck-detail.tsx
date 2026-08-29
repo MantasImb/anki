@@ -5,13 +5,22 @@ import {
   calculateDeckProgress,
   type Flashcard,
 } from "@/application/flashcards";
+import {
+  DeleteCollectionForm,
+  type DeleteCollectionFormState,
+} from "@/app/collections/delete-collection-form";
 
 export function DeckDetail({
   deck,
   flashcards,
+  deleteAction,
 }: {
   deck: Collection;
   flashcards: Flashcard[];
+  deleteAction: (
+    state: DeleteCollectionFormState,
+    formData: FormData,
+  ) => Promise<DeleteCollectionFormState>;
 }) {
   const basePath = `/decks/${deck.id}`;
   const progress = calculateDeckProgress(flashcards);
@@ -60,6 +69,19 @@ export function DeckDetail({
           </p>
         </section>
       )}
+      <section className="mt-12 border-t border-slate-200 pt-8">
+        <h2 className="text-lg font-semibold text-slate-950">Danger zone</h2>
+        <p className="mt-2 max-w-xl leading-7 text-slate-600">
+          Deleting this Deck permanently removes all of its active Flashcards.
+          Study Result history is retained.
+        </p>
+        <DeleteCollectionForm
+          action={deleteAction}
+          collectionType="Flashcard Deck"
+          itemCount={flashcards.length}
+          itemName="Flashcard"
+        />
+      </section>
     </main>
   );
 }

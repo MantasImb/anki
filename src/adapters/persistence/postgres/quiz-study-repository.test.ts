@@ -240,4 +240,41 @@ describe("PostgreSQL Quiz study persistence", () => {
       recallStreak: 0,
     });
   });
+
+  it("retains Quiz Result history after its Question is deleted", async () => {
+    const database = drizzle(client);
+    const quiz = await createCollectionService(
+      "Quiz",
+      createDrizzleQuizRepository(database),
+    ).create({ name: "Historikk" });
+    const questions = createQuizQuestionService(
+      createDrizzleQuizQuestionRepository(database),
+    );
+    const question = await questions.create({
+      quizId: quiz.id,
+      promptNorwegian: "Hva betyr rolig?",
+      promptEnglish: "What does calm mean?",
+      options: [
+        { norwegian: "stille", english: "quiet", isCorrect: true },
+        { norwegian: "bråkete", english: "noisy", isCorrect: false },
+      ],
+    });
+    const study = createQuizStudyService(
+      createDrizzleQuizStudyRepository(database),
+    );
+    await study.recordResult({
+      id: crypto.randomUUID(),
+      quizId: quiz.id,
+      questionId: question.id,
+      selectedOptionIds: [question.options[0].id],
+      translationHelpUsed: false,
+    });
+
+    await questions.delete(quiz.id, question.id);
+
+    expect(await questions.list(quiz.id)).toEqual([]);
+    expect(await study.history()).toEqual([
+      expect.objectContaining({ questionId: null, outcome: "correct" }),
+    ]);
+  });
 });

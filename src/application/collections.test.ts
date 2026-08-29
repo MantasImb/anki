@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createCollectionService } from "./collections";
 import { MemoryCollectionRepository } from "../testing/memory-collection-repository";
 
@@ -51,6 +51,34 @@ describe("Flashcard Deck collections", () => {
       fieldErrors: { name: "A Flashcard Deck with this name already exists." },
     });
     expect(await decks.list()).toHaveLength(1);
+  });
+
+  it("permanently removes a Deck and reports repeated deletion", async () => {
+    const decks = createCollectionService(
+      "Flashcard Deck",
+      new MemoryCollectionRepository(),
+    );
+    const deck = await decks.create({ name: "På vei" });
+
+    await decks.delete(deck.id);
+
+    expect(await decks.get(deck.id)).toBeUndefined();
+    await expect(decks.delete(deck.id)).rejects.toMatchObject({
+      name: "CollectionNotFoundError",
+    });
+  });
+
+  it("keeps a successful deletion when best-effort cleanup fails", async () => {
+    const repository = new MemoryCollectionRepository();
+    const cleanup = vi.fn(async () => {
+      throw new Error("bucket unavailable");
+    });
+    const quizzes = createCollectionService("Quiz", repository, cleanup);
+    const quiz = await quizzes.create({ name: "Bilder" });
+
+    await expect(quizzes.delete(quiz.id)).resolves.toBeUndefined();
+    expect(await quizzes.get(quiz.id)).toBeUndefined();
+    expect(cleanup).toHaveBeenCalledOnce();
   });
 });
 

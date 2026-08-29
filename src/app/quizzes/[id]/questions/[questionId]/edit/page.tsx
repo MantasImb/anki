@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { QuestionForm } from "@/app/quizzes/question-form";
+import { DeleteQuestionForm } from "@/app/quizzes/delete-question-form";
 import { getQuizService } from "@/composition/collections";
 import { getQuizQuestionService } from "@/composition/quiz-questions";
 import { getQuestionImageService } from "@/composition/question-images";
-import { saveQuestionEdit } from "./actions";
+import { deleteQuestion, saveQuestionEdit } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,16 @@ export default async function EditQuestionPage({
           : undefined}
         question={question}
       />
+      <section className="mt-12 border-t border-slate-200 pt-8">
+        <h2 className="text-lg font-semibold text-slate-950">Danger zone</h2>
+        <p className="mt-2 max-w-xl leading-7 text-slate-600">
+          Deleting this Question removes it from study and Quiz Progress. Quiz
+          Result history is retained.
+        </p>
+        <DeleteQuestionForm
+          action={deleteQuestion.bind(null, quiz.id, question.id)}
+        />
+      </section>
     </main>
   );
 }

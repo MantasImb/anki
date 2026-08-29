@@ -198,3 +198,25 @@ describe("Quiz Question editing", () => {
     });
   });
 });
+
+describe("Quiz Question deletion", () => {
+  it("removes only the requested Question from active Quiz content", async () => {
+    const questions = createQuizQuestionService(
+      new MemoryQuizQuestionRepository(),
+    );
+    const question = await questions.create({
+      quizId: "quiz-a",
+      promptNorwegian: "Hva betyr høflig?",
+      promptEnglish: "What does polite mean?",
+      options: [
+        { norwegian: "vennlig", english: "friendly", isCorrect: true },
+        { norwegian: "sint", english: "angry", isCorrect: false },
+      ],
+    });
+
+    await questions.delete("quiz-a", question.id);
+
+    expect(await questions.get("quiz-a", question.id)).toBeUndefined();
+    expect(await questions.list("quiz-a")).toEqual([]);
+  });
+});

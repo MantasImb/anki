@@ -2,12 +2,18 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act } from "react";
+import { hydrateRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { QuizQuestion } from "@/application/quiz-questions";
 import { prepareQuizStudyQuestion } from "@/application/quiz-study";
 import { QuizStudySession } from "./quiz-study";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function singleQuestion(overrides: Partial<QuizQuestion> = {}): QuizQuestion {
   return {
@@ -141,6 +147,38 @@ describe("multiple-answer Quiz study", () => {
 });
 
 describe("single-answer Quiz study", () => {
+  it("hydrates a refreshed study Question without changing Answer Option order", async () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    const props = {
+      action: vi.fn(),
+      initialAttemptId: "8de9e5d4-2788-47af-8767-d1a4b6a1b0fd",
+      initialQuestionId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",
+      questions: [prepareQuizStudyQuestion(singleQuestion())],
+    };
+    const serverHtml = renderToString(<QuizStudySession {...props} />);
+    const container = document.createElement("div");
+    container.innerHTML = serverHtml;
+    document.body.append(container);
+    random.mockReturnValue(0.999);
+    const hydrationErrors: unknown[] = [];
+    let root: Root | undefined;
+
+    await act(async () => {
+      root = hydrateRoot(container, <QuizStudySession {...props} />, {
+        onRecoverableError: (error) => hydrationErrors.push(error),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    try {
+      expect(hydrationErrors).toEqual([]);
+    } finally {
+      await act(async () => root?.unmount());
+      container.remove();
+      random.mockRestore();
+    }
+  });
+
   it("allows exactly one Answer Option to be selected", async () => {
     render(
       <QuizStudySession

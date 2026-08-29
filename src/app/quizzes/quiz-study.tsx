@@ -49,7 +49,7 @@ export function QuizStudySession({
   initialAttemptId,
   initialQuestionId,
   questions: initialQuestions,
-  random = Math.random,
+  random,
 }: {
   action: QuizStudyAction;
   initialAttemptId: string;

@@ -48,6 +48,7 @@ export interface QuizQuestionRepository {
     question: QuizQuestion,
     imageChange?: QuestionImageChange,
   ): Promise<QuizQuestion | undefined>;
+  delete(quizId: string, id: string): Promise<boolean>;
 }
 
 export type QuizQuestionFieldErrors = {
@@ -174,6 +175,15 @@ export function createQuizQuestionService(
         }
       }
       return updated;
+    },
+    async delete(quizId: string, id: string) {
+      const deleted = await repository.delete(quizId, id);
+      if (!deleted) throw new QuizQuestionNotFoundError();
+      try {
+        await cleanupImages();
+      } catch {
+        // The committed deletion is authoritative; queued cleanup retries later.
+      }
     },
   };
 }
