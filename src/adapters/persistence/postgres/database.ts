@@ -10,6 +10,7 @@ import { createDrizzleGenerationInstructionsRepository } from "./generation-inst
 import { createDrizzleGenerationRepository } from "./generation-repository";
 import { createDrizzleStudyRepository } from "./study-repository";
 import { createDrizzleQuizQuestionRepository } from "./quiz-question-repository";
+import { createDrizzleQuizStudyRepository } from "./quiz-study-repository";
 import {
   createDrizzleFlashcardDeckRepository,
   createDrizzleQuizRepository,
@@ -93,5 +94,12 @@ export function getPostgresQuizQuestionRepository() {
   return diagnose(
     createDrizzleQuizQuestionRepository(getDatabase()),
     "quizQuestions",
+  );
+}
+
+export function getPostgresQuizStudyRepository() {
+  return diagnose(
+    createDrizzleQuizStudyRepository(getDatabase()),
+    "quizStudy",
   );
 }

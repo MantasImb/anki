@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Collection } from "@/application/collections";
 import type { QuizQuestion } from "@/application/quiz-questions";
+import { calculateQuizProgress } from "@/application/quiz-study";
 
 export function QuizDetail({
   quiz,
@@ -10,6 +11,7 @@ export function QuizDetail({
   questions: QuizQuestion[];
 }) {
   const basePath = `/quizzes/${quiz.id}`;
+  const progress = calculateQuizProgress(questions);
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
@@ -32,13 +34,19 @@ export function QuizDetail({
           </p>
         </section>
       ) : (
-        <div className="mt-10 space-y-5">
+        <div className="mt-8 space-y-5">
+          <p className="text-sm font-medium text-slate-600">
+            Quiz Progress: {progress.percentage}% Learned
+          </p>
           {questions.map((question) => (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={question.id}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-lg font-semibold text-slate-950">{question.promptNorwegian}</p>
                   <p className="mt-1 text-sm text-slate-600">{question.promptEnglish}</p>
+                  <p className="mt-2 text-xs font-medium text-slate-500">
+                    Recall Streak {question.recallStreak}/3
+                  </p>
                 </div>
                 <Link className="shrink-0 text-sm font-semibold text-sky-700" href={`${basePath}/questions/${question.id}/edit`}>
                   Edit Question

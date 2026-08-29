@@ -1,3 +1,5 @@
+import { calculateLearningProgress } from "./learning-progress";
+
 export type FlashcardContent = {
   front: string;
   back: string;
@@ -42,17 +44,7 @@ export class FlashcardValidationError extends Error {
 }
 
 export function calculateDeckProgress(flashcards: Flashcard[]) {
-  const learned = flashcards.filter(
-    ({ recallStreak }) => recallStreak === 3,
-  ).length;
-  return {
-    learned,
-    total: flashcards.length,
-    percentage:
-      flashcards.length === 0
-        ? 0
-        : Math.round((learned / flashcards.length) * 100),
-  };
+  return calculateLearningProgress(flashcards);
 }
 
 function validateFlashcard(input: FlashcardContent) {

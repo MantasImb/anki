@@ -111,6 +111,29 @@ export const answerOptions = pgTable(
   ],
 );
 
+export const quizResults = pgTable(
+  "quiz_results",
+  {
+    id: uuid("id").primaryKey(),
+    questionId: uuid("question_id").references(() => quizQuestions.id, {
+      onDelete: "set null",
+    }),
+    outcome: text("outcome")
+      .$type<"correct" | "incorrect">()
+      .notNull(),
+    translationHelpUsed: boolean("translation_help_used").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "quiz_results_outcome_valid",
+      sql`${table.outcome} in ('correct', 'incorrect')`,
+    ),
+  ],
+);
+
 export const sourceTexts = pgTable(
   "source_texts",
   {

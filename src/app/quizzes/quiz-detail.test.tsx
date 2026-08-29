@@ -36,5 +36,7 @@ describe("Quiz detail", () => {
       "sint — angry — Incorrect",
       "vennlig — friendly — Correct",
     ]);
+    expect(screen.getByText("Quiz Progress: 0% Learned")).toBeTruthy();
+    expect(screen.getByText("Recall Streak 0/3")).toBeTruthy();
   });
 });

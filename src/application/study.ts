@@ -1,5 +1,10 @@
 import type { Flashcard } from "./flashcards";
 
+export type StudyCandidate = {
+  id: string;
+  recallStreak: number;
+};
+
 export type StudyAssessment = "correct" | "incorrect";
 
 export type StudyResult = {
@@ -33,7 +38,10 @@ export function createStudyScheduler(random: () => number = Math.random) {
   const retryGaps = new Map<string, Set<string>>();
 
   return {
-    next(cards: Flashcard[], previousCardId?: string): Flashcard | undefined {
+    next<T extends StudyCandidate>(
+      cards: T[],
+      previousCardId?: string,
+    ): T | undefined {
       const requiredAlternatives = (cardId: string) =>
         Math.min(3, cards.filter(({ id }) => id !== cardId).length);
       const retryGapIsOpen = (cardId: string) => {
@@ -67,7 +75,7 @@ export function createStudyScheduler(random: () => number = Math.random) {
         candidates = novelAlternatives;
       }
 
-      const weightOf = (card: Flashcard) =>
+      const weightOf = (card: StudyCandidate) =>
         Math.max(1, 4 - card.recallStreak);
       const totalWeight = candidates.reduce(
         (total, card) => total + weightOf(card),
@@ -75,7 +83,7 @@ export function createStudyScheduler(random: () => number = Math.random) {
       );
       let selection = random() * totalWeight;
 
-      let selected: Flashcard | undefined;
+      let selected: T | undefined;
       for (const card of candidates) {
         selection -= weightOf(card);
 
