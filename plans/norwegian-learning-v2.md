@@ -2,6 +2,17 @@
 
 > Source PRD: [Norwegian Learning v2](../docs/prd/norwegian-learning-v2.md)
 
+## Completion status
+
+Phases 1–10 are implemented and the v2 production cutover is complete. On
+2026-08-30, the deployed application at `https://anki-taupe.vercel.app` passed
+the phone-sized Deck and Quiz release journeys, live Google Translation and
+Railway image transfer checks, OpenAI generation and retry checks, cross-device
+persistence checks, safe-log review, and the accepted public-access risk review.
+The production database was initialized with the complete v2 schema and Default
+Generation Template without default collections or retained v1 state. The
+unchecked boxes below preserve the original planning criteria.
+
 ## Evidence and assumptions
 
 - **Repository fact**: v1 is a Next.js 16 App Router application with TypeScript, Server Components for reads, Server Actions for mutations, application-facing repository contracts, and Drizzle/PostgreSQL adapters.

@@ -1,9 +1,9 @@
 ---
 title: Create and study Norwegian flashcards from source text
 labels:
-  - ready-for-agent
+  - completed
 prd: ../prd/norwegian-flashcards-v1.md
-status: ready-for-release-qa
+status: completed
 ---
 
 # Create and study Norwegian flashcards from source text
@@ -27,12 +27,12 @@ Build the v1 single-Learner application described in the linked PRD. The Learner
 - [x] Correct results increase Recall Streak to a maximum of three; Incorrect results reset it to zero.
 - [x] Weighted selection favors lower-streak Flashcards while keeping three-streak Flashcards eligible.
 - [x] An incorrectly answered Flashcard cannot return until three other Flashcards have been studied, with the documented tiny-collection fallback.
-- [x] Flashcards, Source Texts, Card Drafts, Generation Instructions, Study Results, and Recall Streaks use durable PostgreSQL persistence; cross-device behavior remains in final deployment QA.
+- [x] Flashcards, Source Texts, Card Drafts, Generation Instructions, Study Results, and Recall Streaks use durable PostgreSQL persistence across phone and desktop.
 - [x] Drizzle ORM remains inside the PostgreSQL adapter, with versioned Drizzle Kit migrations.
 - [x] Database credentials and the OpenAI API key remain server-side in deployment configuration.
 - [x] Retryable user-facing errors are concise, while diagnostic details are available in server logs.
-- [x] The confirmed unit, workflow, adapter, and persistence tests pass; the critical browser test is ready for final Preview QA.
-- [ ] The application is smoke-tested against Railway PostgreSQL from its Vercel deployment.
+- [x] The confirmed unit, workflow, adapter, persistence, and critical browser tests pass.
+- [x] The application is smoke-tested against Railway PostgreSQL from its Vercel deployment.
 
 ## Module Breakdown
 

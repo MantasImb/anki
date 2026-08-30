@@ -46,8 +46,8 @@ bunx playwright show-trace test-results/path-to-trace.zip
 
 Common failures are missing Preview provider variables, Bucket CORS that omits
 the exact Preview origin, a missing Chromium install, expired provider credit,
-or an incorrect `RELEASE_BASE_URL`. Complete `release-checklist.md` before the
-production reset.
+or an incorrect `RELEASE_BASE_URL`. Complete the release preparation and
+cutover safeguards documented in the README before a production reset.
 
 Railway stores S3-style partial origin wildcards such as
 `https://*.vercel.app`, but live release testing showed that it did not honor

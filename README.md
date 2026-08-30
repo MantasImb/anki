@@ -209,9 +209,8 @@ bunx playwright install chromium
 RELEASE_BASE_URL=https://your-preview.vercel.app bun run test:e2e:release
 ```
 
-The full provisioning, phone/desktop validation, safe-log checks, and manual
-OpenAI smoke test are in [`docs/release-checklist.md`](docs/release-checklist.md). A
-beginner-friendly explanation of the browser test is in
+A beginner-friendly explanation of the browser test, including its live-service
+boundaries and failure diagnostics, is in
 [`docs/playwright-release-test.md`](docs/playwright-release-test.md).
 
 For the one-time destructive production cutover, first run
