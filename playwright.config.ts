@@ -21,7 +21,7 @@ export default defineConfig({
   projects: [
     {
       name: "phone-chromium",
-      use: { ...devices["iPhone 13"] },
+      use: { ...devices["iPhone 13"], browserName: "chromium" },
     },
   ],
 });

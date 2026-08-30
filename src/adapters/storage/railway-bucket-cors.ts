@@ -8,7 +8,9 @@ function allowsUpload(rule: CorsRule, origin: string) {
   const origins = rule.AllowedOrigins ?? [];
   const methods = rule.AllowedMethods ?? [];
   const headers = (rule.AllowedHeaders ?? []).map((header) => header.toLowerCase());
-  return (origins.includes(origin) || origins.includes("*")) &&
+  const originIsCovered = origins.includes("*") ||
+    (!origin.includes("*") && origins.includes(origin));
+  return originIsCovered &&
     methods.includes("PUT") &&
     (headers.includes("*") || headers.includes("content-type"));
 }

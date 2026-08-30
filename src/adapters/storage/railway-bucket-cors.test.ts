@@ -23,4 +23,26 @@ describe("Railway Bucket CORS", () => {
       "Railway Bucket CORS is missing Question Image PUT access for: https://anki.example.",
     );
   });
+
+  it("accepts full wildcard access for every configured origin", () => {
+    expect(() => requireQuestionImageBucketCors([
+      {
+        AllowedOrigins: ["*"],
+        AllowedMethods: ["PUT"],
+        AllowedHeaders: ["*"],
+      },
+    ], ["http://localhost:3000", "https://*.vercel.app"])).not.toThrow();
+  });
+
+  it("does not treat a stored partial wildcard as verified Railway access", () => {
+    expect(() => requireQuestionImageBucketCors([
+      {
+        AllowedOrigins: ["https://*.vercel.app"],
+        AllowedMethods: ["PUT"],
+        AllowedHeaders: ["*"],
+      },
+    ], ["https://*.vercel.app"])).toThrow(
+      "Railway Bucket CORS is missing Question Image PUT access for: https://*.vercel.app.",
+    );
+  });
 });

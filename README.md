@@ -103,6 +103,15 @@ bun run bucket:cors:verify
 Replace `https://your-app.vercel.app` in both the environment variable and the
 CORS command with each real Preview or Production origin before deployment.
 
+Railway accepts and returns an S3-style partial wildcard such as
+`https://*.vercel.app`, but live browser testing showed that Railway does not
+honor it for upload preflights. Use exact origins when possible. If arbitrary
+Vercel Preview origins are required and the broader access is acceptable, set
+the bucket rule to `"AllowedOrigins":["*"]`; the verifier accepts this as
+covering every origin in `QUESTION_IMAGE_ALLOWED_ORIGINS`. This does not make
+the private bucket public or remove the presigned-URL requirement, but any
+browser origin can use a valid presigned URL.
+
 Apply every versioned database migration, then start the application:
 
 ```bash
@@ -148,8 +157,9 @@ Add the same variables to the application's protected deployment environment:
 - `RAILWAY_BUCKET_ENDPOINT`, `RAILWAY_BUCKET_REGION`,
   `RAILWAY_BUCKET_NAME`, `RAILWAY_BUCKET_ACCESS_KEY_ID`, and
   `RAILWAY_BUCKET_SECRET_ACCESS_KEY` — private S3-compatible bucket settings.
-- `QUESTION_IMAGE_ALLOWED_ORIGINS` — comma-separated local, Preview, and
-  Production browser origins allowed to upload directly by bucket CORS.
+- `QUESTION_IMAGE_ALLOWED_ORIGINS` — comma-separated browser origins that the
+  deployment verifier expects bucket CORS to cover. It is not a separate
+  runtime Origin gate when the bucket itself uses `AllowedOrigins: ["*"]`.
 
 Apply migrations to the production database before using a deployment. Do not
 expose database, provider, or bucket credentials to browser code.

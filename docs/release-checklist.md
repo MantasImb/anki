@@ -31,6 +31,10 @@ after production verification succeeds.
   list. Use Railway's public PostgreSQL URL.
 - [ ] Configure Railway Bucket CORS for the exact Preview origin and run
   `bun run bucket:cors:verify` with the Preview environment loaded.
+- [ ] Do not use `https://*.vercel.app` as the Railway Bucket CORS rule: it is
+  stored but was not honored in live upload preflights. If arbitrary Preview
+  origins are required, explicitly accept the broader risk and use
+  `AllowedOrigins: ["*"]`.
 - [ ] Confirm that no database, OpenAI, Google, or Bucket secret uses a
   `NEXT_PUBLIC_` prefix.
 - [ ] Run `bun run release:prepare` against the disposable Preview database.
@@ -79,6 +83,9 @@ RELEASE_BASE_URL=https://your-preview.vercel.app bun run test:e2e:release
   learning data and repeatedly request presigned uploads up to the 25 MB limit.
 - [ ] Confirm monitoring and provider/bucket quotas are acceptable for this
   temporary posture. Do not treat file-size validation as abuse protection.
+- [ ] If bucket CORS uses `AllowedOrigins: ["*"]`, confirm the team accepts
+  that any browser origin can use a valid presigned upload URL. The bucket
+  remains private, but CORS is not an additional origin restriction.
 
 ## Production cutover
 

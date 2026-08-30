@@ -165,10 +165,14 @@ async function currentQuestionIndex(page: Page) {
 }
 
 async function selectCorrectAnswer(page: Page, marker: string, index: number) {
-  await page.getByLabel(correctOption(index, marker), { exact: true }).check();
+  const optionName = (suffix = "A") => new RegExp(
+    correctOption(index, marker, suffix).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"),
+    "u",
+  );
+  await page.getByLabel(optionName()).check();
   if (index === 1) {
     await page
-      .getByLabel(correctOption(index, marker, "B"), { exact: true })
+      .getByLabel(optionName("B"))
       .check();
   }
 }

@@ -48,3 +48,9 @@ Common failures are missing Preview provider variables, Bucket CORS that omits
 the exact Preview origin, a missing Chromium install, expired provider credit,
 or an incorrect `RELEASE_BASE_URL`. Complete `release-checklist.md` before the
 production reset.
+
+Railway stores S3-style partial origin wildcards such as
+`https://*.vercel.app`, but live release testing showed that it did not honor
+that pattern for browser upload preflights. Prefer the exact deployment origin.
+If arbitrary Preview URLs must work and the broader risk is accepted, configure
+the bucket with `AllowedOrigins: ["*"]`; presigned URLs are still required.
