@@ -57,7 +57,7 @@ export function QuizDetail({
                     Recall Streak {question.recallStreak}/3
                   </p>
                 </div>
-                <Link className="shrink-0 text-sm font-semibold text-sky-700" href={`${basePath}/questions/${question.id}/edit`}>
+                <Link className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-sm font-semibold text-sky-700 hover:bg-sky-50" href={`${basePath}/questions/${question.id}/edit`}>
                   Edit Question
                 </Link>
               </div>

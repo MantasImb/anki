@@ -307,9 +307,10 @@ export function QuestionForm({
               <div className="flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-950" id={headingId}>Option {index + 1}</h2>
                 <div className="flex flex-wrap justify-end gap-2">
-                  <button aria-describedby={headingId} disabled={index === 0} onClick={() => moveOption(index, -1)} type="button">Move up</button>
-                  <button aria-describedby={headingId} disabled={index === options.length - 1} onClick={() => moveOption(index, 1)} type="button">Move down</button>
+                  <button className="min-h-11 rounded-lg px-3 text-sm font-semibold text-sky-800 disabled:text-slate-400" aria-describedby={headingId} disabled={index === 0} onClick={() => moveOption(index, -1)} type="button">Move up</button>
+                  <button className="min-h-11 rounded-lg px-3 text-sm font-semibold text-sky-800 disabled:text-slate-400" aria-describedby={headingId} disabled={index === options.length - 1} onClick={() => moveOption(index, 1)} type="button">Move down</button>
                   <button
+                    className="min-h-11 rounded-lg px-3 text-sm font-semibold text-red-800 disabled:text-slate-400"
                     aria-describedby={headingId}
                     disabled={options.length <= 2}
                     onClick={() => removeOption(index)}

@@ -4,6 +4,7 @@ This is a temporary operational document. Delete it after the v2 database reset 
 
 - [ ] Resolve and record the exact database target and deletion scope immediately before performing the reset.
 - [ ] Confirm the destructive reset with the Learner immediately before changing the target database.
+- [ ] Confirm the target is isolated from application traffic through the complete reset, migration, verification, and deployment switch.
 - [ ] Complete and verify both Flashcard Deck restructuring and Quiz functionality before the v2 production cutover.
 - [ ] Replace or reset the target database so that no v1 application data or configuration is retained.
 - [ ] Apply the complete v2 database schema to the clean target.

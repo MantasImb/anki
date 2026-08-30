@@ -2,10 +2,12 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
+import { DEFAULT_GENERATION_TEMPLATE } from "../src/application/generation";
 import { requireReleaseConfiguration } from "../src/adapters/configuration/release";
 import {
   requireCompleteMigrationHistory,
   requireExpectedDatabaseObjects,
+  requireFreshV2DatabaseState,
   type ExpectedMigration,
   expectedDatabaseObjects,
 } from "../src/adapters/persistence/postgres/migration-readiness";
@@ -19,7 +21,11 @@ async function readExpectedMigrations() {
   return journal.entries;
 }
 
-export async function verifyDeployment() {
+export async function verifyDeployment({
+  requireFresh = false,
+}: {
+  requireFresh?: boolean;
+} = {}) {
   const configuration = requireReleaseConfiguration(process.env);
   const client = postgres(configuration.databaseUrl, {
     connect_timeout: 10,
@@ -57,6 +63,49 @@ export async function verifyDeployment() {
       await readExpectedMigrations(),
       migrationRows.map(({ created_at }) => created_at),
     );
+
+    if (requireFresh) {
+      const [rowCounts] = await client<
+        Array<{
+          answer_options: number;
+          card_drafts: number;
+          flashcard_decks: number;
+          flashcards: number;
+          generation_instructions: number;
+          question_image_cleanup: number;
+          question_image_uploads: number;
+          quizzes: number;
+          quiz_questions: number;
+          quiz_results: number;
+          source_texts: number;
+          study_results: number;
+        }>
+      >`
+        select
+          (select count(*)::int from answer_options) as answer_options,
+          (select count(*)::int from card_drafts) as card_drafts,
+          (select count(*)::int from flashcard_decks) as flashcard_decks,
+          (select count(*)::int from flashcards) as flashcards,
+          (select count(*)::int from generation_instructions) as generation_instructions,
+          (select count(*)::int from question_image_cleanup) as question_image_cleanup,
+          (select count(*)::int from question_image_uploads) as question_image_uploads,
+          (select count(*)::int from quizzes) as quizzes,
+          (select count(*)::int from quiz_questions) as quiz_questions,
+          (select count(*)::int from quiz_results) as quiz_results,
+          (select count(*)::int from source_texts) as source_texts,
+          (select count(*)::int from study_results) as study_results
+      `;
+      const [storedInstructions] = await client<{ instructions: string }[]>`
+        select instructions
+        from generation_instructions
+        where id = 'generation-instructions'
+      `;
+      requireFreshV2DatabaseState({
+        effectiveGenerationInstructions:
+          storedInstructions?.instructions ?? DEFAULT_GENERATION_TEMPLATE,
+        rowCounts,
+      });
+    }
   } catch (error) {
     if (
       error instanceof Error &&
@@ -77,7 +126,11 @@ export async function verifyDeployment() {
     await client.end({ timeout: 5 });
   }
 
-  console.log("Deployment configuration and v2 database schema are ready.");
+  console.log(
+    requireFresh
+      ? "Deployment configuration, v2 schema, and fresh database state are ready."
+      : "Deployment configuration and v2 database schema are ready.",
+  );
 }
 
 if (

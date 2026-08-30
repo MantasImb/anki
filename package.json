@@ -15,8 +15,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "bucket:cors:verify": "bun scripts/verify-bucket-cors.ts",
+    "release:target": "bun scripts/show-release-target.ts",
     "release:verify": "bun scripts/verify-deployment.ts",
-    "release:prepare": "bun scripts/prepare-release.ts"
+    "release:prepare": "bun scripts/prepare-release.ts",
+    "release:cutover:v2": "bun scripts/cutover-v2.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",

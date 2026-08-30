@@ -1,3 +1,5 @@
+import { DEFAULT_GENERATION_TEMPLATE } from "../../../application/generation";
+
 export type ExpectedMigration = {
   tag: string;
   when: number;
@@ -13,6 +15,7 @@ const tables = [
   "question_image_uploads",
   "quizzes",
   "quiz_questions",
+  "quiz_results",
   "source_texts",
   "study_results",
 ] as const;
@@ -71,6 +74,13 @@ const columns = {
     "image_byte_size",
     "created_at",
   ],
+  quiz_results: [
+    "id",
+    "question_id",
+    "outcome",
+    "translation_help_used",
+    "created_at",
+  ],
   source_texts: [
     "id",
     "deck_id",
@@ -113,6 +123,8 @@ const constraints = [
   "quiz_questions_prompt_norwegian_not_blank",
   "quiz_questions_quiz_id_quizzes_id_fk",
   "quiz_questions_recall_streak_valid",
+  "quiz_results_outcome_valid",
+  "quiz_results_question_id_quiz_questions_id_fk",
   "source_texts_content_not_blank",
   "source_texts_deck_id_flashcard_decks_id_fk",
   "source_texts_generation_status_valid",
@@ -157,6 +169,30 @@ export function requireExpectedDatabaseObjects(
   if (missing.length > 0) {
     throw new Error(
       `Database schema is incomplete. Missing objects: ${missing.join(", ")}.`,
+    );
+  }
+}
+
+export function requireFreshV2DatabaseState({
+  effectiveGenerationInstructions,
+  rowCounts,
+}: {
+  effectiveGenerationInstructions: string;
+  rowCounts: Readonly<Record<(typeof tables)[number], number>>;
+}) {
+  const populatedTables = Object.entries(rowCounts)
+    .filter(([, rowCount]) => rowCount > 0)
+    .map(([table]) => table);
+
+  if (populatedTables.length > 0) {
+    throw new Error(
+      `Release database is not fresh. Populated tables: ${populatedTables.join(", ")}.`,
+    );
+  }
+
+  if (effectiveGenerationInstructions !== DEFAULT_GENERATION_TEMPLATE) {
+    throw new Error(
+      "Release database does not expose the bundled Default Generation Template.",
     );
   }
 }

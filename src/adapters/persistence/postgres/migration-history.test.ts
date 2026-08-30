@@ -31,8 +31,11 @@ describe("complete PostgreSQL migration history", () => {
           'flashcard_decks',
           'flashcards',
           'generation_instructions',
+          'question_image_cleanup',
+          'question_image_uploads',
           'quizzes',
           'quiz_questions',
+          'quiz_results',
           'source_texts',
           'study_results'
         )
@@ -44,7 +47,10 @@ describe("complete PostgreSQL migration history", () => {
         "flashcard_decks",
         "flashcards",
         "generation_instructions",
+        "question_image_cleanup",
+        "question_image_uploads",
         "quiz_questions",
+        "quiz_results",
         "quizzes",
         "source_texts",
         "study_results",

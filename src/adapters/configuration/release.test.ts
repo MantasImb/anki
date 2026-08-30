@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { requireReleaseConfiguration } from "./release";
+import {
+  requireReleaseConfiguration,
+  requireReleaseCutoverConfiguration,
+} from "./release";
 
 const providerConfiguration = {
   GOOGLE_CLOUD_PROJECT_ID: "learning-project",
@@ -18,6 +21,60 @@ const providerConfiguration = {
 };
 
 describe("release configuration", () => {
+  it("authorizes cutover only when the safe database identity is confirmed exactly", () => {
+    const configuration = requireReleaseCutoverConfiguration({
+      ...providerConfiguration,
+      RELEASE_DATABASE_URL:
+        "postgresql://release:secret@production.example:6432/production",
+      RELEASE_DATABASE_CONFIRMATION: "production.example:6432/production",
+      RELEASE_TRAFFIC_ISOLATED: "true",
+    });
+
+    expect(configuration.databaseIdentity).toBe(
+      "production.example:6432/production",
+    );
+  });
+
+  it.each([undefined, "preview.example:5432/preview"])(
+    "rejects missing or wrong cutover confirmation without exposing credentials",
+    (confirmation) => {
+      const secret = "cutover-secret-value";
+
+      expect(() =>
+        requireReleaseCutoverConfiguration({
+          ...providerConfiguration,
+          RELEASE_DATABASE_URL: `postgresql://release:${secret}@production.example:6432/production`,
+          RELEASE_DATABASE_CONFIRMATION: confirmation,
+        }),
+      ).toThrow(
+        "RELEASE_DATABASE_CONFIRMATION must exactly match production.example:6432/production.",
+      );
+
+      try {
+        requireReleaseCutoverConfiguration({
+          ...providerConfiguration,
+          RELEASE_DATABASE_URL: `postgresql://release:${secret}@production.example:6432/production`,
+          RELEASE_DATABASE_CONFIRMATION: confirmation,
+        });
+      } catch (error) {
+        expect(String(error)).not.toContain(secret);
+      }
+    },
+  );
+
+  it("rejects cutover until the target is isolated from application traffic", () => {
+    expect(() =>
+      requireReleaseCutoverConfiguration({
+        ...providerConfiguration,
+        RELEASE_DATABASE_URL:
+          "postgresql://release:secret@production.example:6432/production",
+        RELEASE_DATABASE_CONFIRMATION: "production.example:6432/production",
+      }),
+    ).toThrow(
+      "RELEASE_TRAFFIC_ISOLATED must be true before resetting the release database.",
+    );
+  });
+
   it("uses the explicit release database instead of the local application database", () => {
     const configuration = requireReleaseConfiguration({
       ...providerConfiguration,

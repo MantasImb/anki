@@ -1,130 +1,246 @@
 import { randomUUID } from "node:crypto";
 import { expect, test as base, type Dialog, type Page } from "@playwright/test";
 
-async function deleteFlashcardsByMarker(page: Page, marker: string) {
-  await page.goto("/cards");
-  const matchingCards = page.locator("main li").filter({ hasText: marker });
-
+async function deleteCollectionsByMarker(
+  page: Page,
+  marker: string,
+  collection: "Flashcard Deck" | "Quiz",
+) {
+  const listPath = collection === "Quiz" ? "/quizzes" : "/decks";
+  await page.goto(listPath);
+  const matchingCollections = page.getByRole("link").filter({ hasText: marker });
   const acceptDeletion = (dialog: Dialog) => dialog.accept();
   page.on("dialog", acceptDeletion);
 
   try {
-    while ((await matchingCards.count()) > 0) {
-      await matchingCards
-        .first()
-        .getByRole("link", { name: "Edit Flashcard" })
-        .click();
-      await page.getByRole("button", { name: "Delete Flashcard" }).click();
-      await expect(page).toHaveURL(/\/cards$/);
+    while ((await matchingCollections.count()) > 0) {
+      await matchingCollections.first().click();
+      await page.getByRole("button", { name: `Delete ${collection}` }).click();
+      await expect(page).toHaveURL(new RegExp(`${listPath}$`));
     }
   } finally {
     page.off("dialog", acceptDeletion);
   }
 
-  await expect(matchingCards).toHaveCount(0);
+  await expect(matchingCollections).toHaveCount(0);
 }
 
 const test = base.extend<{ runMarker: string }>({
   runMarker: async ({ page }, provide) => {
     const marker = `e2e-${randomUUID()}`;
     await provide(marker);
-    await deleteFlashcardsByMarker(page, marker);
+    await deleteCollectionsByMarker(page, marker, "Flashcard Deck");
+    await deleteCollectionsByMarker(page, marker, "Quiz");
   },
 });
 
-async function addManualFlashcard(page: Page, front: string, back: string) {
-  await page.goto("/cards/new");
+async function createCollection(
+  page: Page,
+  marker: string,
+  collection: "Flashcard Deck" | "Quiz",
+) {
+  const listPath = collection === "Quiz" ? "/quizzes" : "/decks";
+  const name = `${collection} ${marker}`;
+  await page.goto(listPath);
+  await page.getByLabel(`${collection} name`).fill(name);
+  await page.getByRole("button", { name: `Create ${collection}` }).click();
+  await expect(page).toHaveURL(new RegExp(`${listPath}/[^/]+$`));
+  await expect(page.getByRole("heading", { name })).toBeVisible();
+  return new URL(page.url()).pathname;
+}
+
+async function answerDeck(page: Page, assessment: "Correct" | "Incorrect") {
+  await page.getByRole("button", { name: "Reveal English Back" }).click();
+  await page.getByRole("button", { name: assessment, exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Reveal English Back" }),
+  ).toBeVisible();
+}
+
+test("phone Deck journey persists learned progress", async ({ page, runMarker }) => {
+  const deckPath = await createCollection(page, runMarker, "Flashcard Deck");
+  const front = `rolig ${runMarker}`;
+  const back = `calm ${runMarker}`;
+
+  await page.getByRole("link", { name: "Add Flashcard" }).click();
   await page.getByLabel("Norwegian Front").fill(front);
   await page.getByLabel("English Back").fill(back);
   await page.getByRole("button", { name: "Save Flashcard" }).click();
-  await expect(page).toHaveURL(/\/cards$/);
+  await expect(page).toHaveURL(new RegExp(`${deckPath}$`));
+  await expect(page.getByText(front, { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Study Deck" }).click();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await expect(page.getByText(front, { exact: true })).toBeVisible();
+    await answerDeck(page, "Correct");
+  }
+
+  await page.goto(deckPath);
+  await expect(page.getByText("Deck Progress: 100% Learned")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Deck Progress: 100% Learned")).toBeVisible();
+  await expect(page.getByText("Recall streak 3/3")).toBeVisible();
+});
+
+const questionImage = {
+  name: "release-question.png",
+  mimeType: "image/png",
+  buffer: Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64",
+  ),
+};
+
+function norwegianPrompt(index: number, marker: string) {
+  return `Spørsmål ${index} ${marker}`;
 }
 
-function studyFront(page: Page) {
-  return page.locator("main section").first().locator(":scope > p").nth(1);
+function correctOption(index: number, marker: string, suffix = "A") {
+  return `Riktig ${index}${suffix} ${marker}`;
 }
 
-async function answer(page: Page, assessment: "Correct" | "Incorrect") {
-  await page.getByRole("button", { name: "Reveal English Back" }).click();
+async function addQuestion(
+  page: Page,
+  quizPath: string,
+  marker: string,
+  index: number,
+  { image = false, translate = false, multiple = false } = {},
+) {
+  await page.goto(`${quizPath}/questions/new`);
+  await page.getByLabel("Norwegian prompt").fill(norwegianPrompt(index, marker));
+  await page.getByLabel("Norwegian option 1").fill(correctOption(index, marker));
+  await page.getByLabel("Norwegian option 2").fill(`Feil ${index} ${marker}`);
+
+  if (multiple) {
+    await page.getByRole("button", { name: "Add option" }).click();
+    await page
+      .getByLabel("Norwegian option 3")
+      .fill(correctOption(index, marker, "B"));
+    await page.getByLabel("Correct option 3").check();
+  }
+
+  if (translate) {
+    await page.getByRole("button", { name: "Translate to English" }).click();
+    await expect(
+      page.getByText(
+        "English is ready to review. Edit it as needed before saving.",
+      ),
+    ).toBeVisible();
+  }
+
   await page
-    .getByRole("button", { name: assessment, exact: true })
-    .click();
+    .getByLabel("English prompt translation")
+    .fill(`Question ${index} ${marker}`);
+  await page.getByLabel("English option 1").fill(`Correct ${index}A ${marker}`);
+  await page.getByLabel("English option 2").fill(`Wrong ${index} ${marker}`);
+  if (multiple) {
+    await page.getByLabel("English option 3").fill(`Correct ${index}B ${marker}`);
+  }
+  if (image) {
+    await page
+      .getByLabel("Question Image", { exact: true })
+      .setInputFiles(questionImage);
+  }
+
+  await page.getByRole("button", { name: "Save Question" }).click();
+  await expect(page).toHaveURL(new RegExp(`${quizPath}$`));
   await expect(
-    page.getByRole("button", { name: "Reveal English Back" }),
+    page.getByText(norwegianPrompt(index, marker), { exact: true }),
   ).toBeVisible();
 }
 
-test("one curriculum unit becomes editable cards and a retry-gapped study session", async ({
+function studyPrompt(page: Page) {
+  return page
+    .locator("main section")
+    .first()
+    .locator(":scope > p, :scope > div > p")
+    .first();
+}
+
+async function currentQuestionIndex(page: Page) {
+  const prompt = await studyPrompt(page).textContent();
+  const match = prompt?.match(/^Spørsmål (\d+) /u);
+  if (!match) throw new Error(`Could not identify Quiz Question: ${prompt}`);
+  return Number(match[1]);
+}
+
+async function selectCorrectAnswer(page: Page, marker: string, index: number) {
+  await page.getByLabel(correctOption(index, marker), { exact: true }).check();
+  if (index === 1) {
+    await page
+      .getByLabel(correctOption(index, marker, "B"), { exact: true })
+      .check();
+  }
+}
+
+async function submitQuizAnswer(page: Page) {
+  await page.getByRole("button", { name: "Submit answer" }).click();
+}
+
+test("phone Quiz journey covers providers, feedback, Retry Gap, and durable progress", async ({
   page,
   runMarker,
 }) => {
-  const targetFront = `fase åtte mål ${runMarker}`;
-  const targetBack = `phase eight target ${runMarker}`;
+  const quizPath = await createCollection(page, runMarker, "Quiz");
+  await addQuestion(page, quizPath, runMarker, 1, {
+    image: true,
+    multiple: true,
+    translate: true,
+  });
 
-  for (const [position, translation] of [
-    ["første alternativ", "first alternative"],
-    ["andre alternativ", "second alternative"],
-    ["tredje alternativ", "third alternative"],
-    ["fjerde alternativ", "fourth alternative"],
-  ]) {
-    await addManualFlashcard(
-      page,
-      `${position} ${runMarker}`,
-      `${translation} ${runMarker}`,
-    );
-  }
-
-  await page.goto("/generate");
-  await page.getByLabel("Norwegian Source Text").fill(
-    [
-      "Bilen er rød.",
-      "Huset er stort.",
-      "Eleven leser en bok.",
-      "Læreren skriver på tavla.",
-      "Vi øver på norsk hver dag.",
-      `Fase åtte mål ${runMarker} er klart.`,
-    ].join(" "),
-  );
-  await page.getByRole("button", { name: "Generate Card Drafts" }).click();
-  await expect(page).toHaveURL(/\/sources\/[^/]+\/drafts$/);
-
-  const frontFields = page.getByLabel("Norwegian Front");
-  const backFields = page.getByLabel("English Back");
-  const draftCount = await frontFields.count();
-
-  for (let index = 0; index < draftCount; index += 1) {
-    const front = frontFields.nth(index);
-    await front.fill(
-      index === 0 ? targetFront : `${await front.inputValue()} ${runMarker}`,
-    );
-    if (index === 0) {
-      await backFields.first().fill(targetBack);
-    }
-    await page.getByRole("button", { name: "Save edits" }).nth(index).click();
-    await expect(page.getByText("Card Draft edits saved.").nth(index))
-      .toBeVisible();
-  }
-  await page
-    .getByRole("button", { name: /Add \d+ Flashcards?/ })
-    .click();
-  await expect(page).toHaveURL(/\/cards$/);
-  const storedTarget = page.locator("main li").filter({ hasText: targetFront });
-  await expect(storedTarget.getByText(targetFront, { exact: true }))
-    .toBeVisible();
-  await expect(storedTarget.getByText(targetBack, { exact: true }))
-    .toBeVisible();
-
-  await page.goto("/study");
-  const retryFront = await studyFront(page).textContent();
-  expect(retryFront).not.toBeNull();
-  await page.getByRole("button", { name: "Reveal English Back" }).click();
-  await page.getByRole("button", { name: "Incorrect" }).click();
+  await page.getByRole("link", { name: "Study Quiz" }).click();
+  await expect(page.getByRole("img", { name: "Question Image" })).toBeVisible();
+  await page.getByRole("button", { name: "Translation Help" }).click();
   await expect(
-    page.getByRole("button", { name: "Reveal English Back" }),
+    page.getByText(`Question 1 ${runMarker}`, { exact: true }),
   ).toBeVisible();
+  await selectCorrectAnswer(page, runMarker, 1);
+  await submitQuizAnswer(page);
+  await expect(page.getByText("Incorrect", { exact: true })).toBeVisible();
+  await expect(page.getByText("Translation Help used")).toBeVisible();
+  await page.getByRole("button", { name: "Next Question" }).click();
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await selectCorrectAnswer(page, runMarker, 1);
+    await submitQuizAnswer(page);
+    await expect(page.getByText("Correct", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Next Question" }).click();
+  }
+
+  await page.goto(quizPath);
+  await expect(page.getByText("Quiz Progress: 100% Learned")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Recall Streak 3/3")).toBeVisible();
+
+  for (let index = 2; index <= 4; index += 1) {
+    await addQuestion(page, quizPath, runMarker, index);
+  }
+
+  await page.goto(`${quizPath}/study`);
+  const retryQuestionIndex = await currentQuestionIndex(page);
+  const retryPrompt = norwegianPrompt(retryQuestionIndex, runMarker);
+  await page
+    .getByLabel(`Feil ${retryQuestionIndex} ${runMarker}`, { exact: true })
+    .check();
+  await submitQuizAnswer(page);
+  await expect(page.getByText("Incorrect", { exact: true })).toBeVisible();
+  await expect(page.getByText("Your incorrect selection")).toBeVisible();
+  await expect(page.getByText("Correct answer").first()).toBeVisible();
+  await page.getByRole("button", { name: "Next Question" }).click();
 
   for (let gap = 0; gap < 3; gap += 1) {
-    await expect(studyFront(page)).not.toHaveText(retryFront ?? "");
-    await answer(page, "Correct");
+    await expect(studyPrompt(page)).not.toHaveText(retryPrompt);
+    const index = await currentQuestionIndex(page);
+    await selectCorrectAnswer(page, runMarker, index);
+    await submitQuizAnswer(page);
+    await expect(page.getByText("Correct", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Next Question" }).click();
   }
+
+  await page.goto(quizPath);
+  const progress = page.getByText(/Quiz Progress: \d+% Learned/u);
+  const persistedProgress = await progress.textContent();
+  expect(persistedProgress).not.toBeNull();
+  await page.reload();
+  await expect(page.getByText(persistedProgress ?? "")).toBeVisible();
 });

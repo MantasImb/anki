@@ -161,9 +161,12 @@ appropriate. Never create `NEXT_PUBLIC_DATABASE_URL` or
 these names so credentials cannot be bundled for browser use. Bucket access
 keys and secrets must never use a `NEXT_PUBLIC_` prefix either.
 
-The generated Vercel URL is publicly reachable. V1 intentionally has no
-accounts, authorization, or Vercel Deployment Protection, so do not store
-material that should not be visible to someone who obtains the URL.
+The generated Vercel URL is publicly reachable. V2 intentionally has no
+accounts, authorization, ownership, or Vercel Deployment Protection, so anyone
+with the URL can read or change learning data. They can also repeatedly request
+presigned uploads up to the 25 MB per-image limit. Use provider and Bucket
+quotas appropriate for this accepted temporary risk; file-size validation is
+not abuse protection.
 
 ### Release preparation
 
@@ -180,16 +183,16 @@ the current shell. Copy the URL directly from the Railway service you intend to
 release and do not route this migration through `vercel env run`.
 The command prints only the credential-free `host:port/database` identity,
 applies every unapplied migration, verifies every checked-in migration against
-Drizzle's database journal, and checks required base tables, columns, and
-constraints. It does not call OpenAI, but it verifies that the API key and
-configurable model are present.
+Drizzle's database journal, and checks required v2 tables, columns, and
+constraints. It makes no provider calls, but validates the protected PostgreSQL,
+OpenAI, Google Translation, Railway Bucket, and allowed-origin configuration.
 Application startup performs the same application configuration validation and
 fails with the offending variable name without printing its value.
 
-Use a separate disposable Railway database for Vercel Preview. The automated
-phone journey invokes the configured OpenAI provider. Its fixture deletes the
-run-marked Flashcards afterward, including after an assertion failure, while
-Source Text, Card Draft, and Study Result audit records remain durable:
+Use a separate disposable Railway database for Vercel Preview. The two automated
+phone journeys create run-marked collections and delete them after success or
+failure. The Quiz journey invokes live Google Translation and Railway Bucket
+upload/read; the Deck journey is provider-free:
 
 ```bash
 bunx playwright install chromium
@@ -197,14 +200,24 @@ RELEASE_BASE_URL=https://your-preview.vercel.app bun run test:e2e:release
 ```
 
 The full provisioning, phone/desktop validation, safe-log checks, and manual
-smoke test are in [`docs/release-checklist.md`](docs/release-checklist.md). A
+OpenAI smoke test are in [`docs/release-checklist.md`](docs/release-checklist.md). A
 beginner-friendly explanation of the browser test is in
 [`docs/playwright-release-test.md`](docs/playwright-release-test.md).
 
-The Phase 6 migrations create append-only Study Results, preserve that history
-when a Flashcard is deleted, and constrain Recall Streaks to the supported
-zero-through-three range. Run `bun run db:migrate` after pulling this phase
-before opening `/study`.
+For the one-time destructive production cutover, first run
+`bun run release:target` and compare the safe identity with the exact Railway
+service. Immediately before the reset, obtain explicit confirmation for that
+identity and deletion scope. Use a new Railway database that no deployment
+references, or disable application traffic to the existing target for the whole
+reset, migration, and verification window. Set `RELEASE_TRAFFIC_ISOLATED=true`
+and `RELEASE_DATABASE_CONFIRMATION` to the printed `host:port/database` value,
+then run `bun run release:cutover:v2`. The command permanently removes the
+target's application data and Drizzle migration history, reapplies the complete
+v2 schema, and verifies a fresh database with no default Deck or Quiz, no
+customized Generation Instructions, and the bundled Default Generation
+Template. Keep traffic isolated until the v2 deployment is live; for a new
+database, switch Vercel's `DATABASE_URL` only after verification. Never run the
+command against Preview or Production merely to diagnose configuration.
 
 ## Database changes
 
@@ -224,7 +237,10 @@ bun run test
 bun run build
 ```
 
-These normal checks do not make live OpenAI requests. The opt-in deployed
-release journey is deliberately separate under `test:e2e:release`.
+These normal checks make no live OpenAI, Google Translation, Railway Bucket, or
+Vercel requests. The opt-in deployed journeys are deliberately separate under
+`test:e2e:release`.
 
-Product requirements and architectural decisions live in [`docs/`](docs/). The phased delivery plan is in [`plans/norwegian-flashcards-v1.md`](plans/norwegian-flashcards-v1.md).
+Product requirements and architectural decisions live in [`docs/`](docs/). The
+v2 delivery plan is in
+[`plans/norwegian-learning-v2.md`](plans/norwegian-learning-v2.md).
