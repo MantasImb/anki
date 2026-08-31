@@ -4,7 +4,10 @@
 
 ## Completion status
 
-Phases 1–7 are implemented and covered by the v1 automated test suite. Phase 8 code and release tooling are complete; final Preview/Production deployment QA remains intentionally open in [`../docs/release-checklist.md`](../docs/release-checklist.md). The unchecked boxes below are the original planning criteria, while this status paragraph and the release checklist record completion.
+Phases 1–8 are implemented. The v1 behavior was carried into the v2 production
+deployment and verified against Vercel, Railway PostgreSQL, and OpenAI during
+the completed v2 release on 2026-08-30. The unchecked boxes below preserve the
+original planning criteria.
 
 ## Evidence and assumptions
 

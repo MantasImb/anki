@@ -1,5 +1,6 @@
 import type {
   Flashcard,
+  FlashcardContent,
   FlashcardRepository,
   NewFlashcard,
 } from "../application/flashcards";
@@ -18,27 +19,32 @@ export class MemoryFlashcardRepository implements FlashcardRepository {
     return flashcard;
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(deckId: string, id: string): Promise<boolean> {
     const originalLength = this.flashcards.length;
     this.flashcards = this.flashcards.filter(
-      (flashcard) => flashcard.id !== id,
+      (flashcard) => flashcard.id !== id || flashcard.deckId !== deckId,
     );
     return this.flashcards.length < originalLength;
   }
 
-  async get(id: string): Promise<Flashcard | undefined> {
-    return this.flashcards.find((flashcard) => flashcard.id === id);
+  async get(deckId: string, id: string): Promise<Flashcard | undefined> {
+    return this.flashcards.find(
+      (flashcard) => flashcard.id === id && flashcard.deckId === deckId,
+    );
   }
 
-  async list(): Promise<Flashcard[]> {
-    return [...this.flashcards];
+  async list(deckId: string): Promise<Flashcard[]> {
+    return this.flashcards.filter((flashcard) => flashcard.deckId === deckId);
   }
 
   async update(
+    deckId: string,
     id: string,
-    input: NewFlashcard,
+    input: FlashcardContent,
   ): Promise<Flashcard | undefined> {
-    const index = this.flashcards.findIndex((flashcard) => flashcard.id === id);
+    const index = this.flashcards.findIndex(
+      (flashcard) => flashcard.id === id && flashcard.deckId === deckId,
+    );
 
     if (index === -1) {
       return undefined;

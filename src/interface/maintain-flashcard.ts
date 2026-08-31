@@ -16,6 +16,7 @@ export type EditFlashcardFormState =
 
 export async function submitEditFlashcardForm(
   flashcards: Pick<FlashcardService, "update">,
+  deckId: string,
   id: string,
   formData: FormData,
 ): Promise<EditFlashcardFormState> {
@@ -27,7 +28,7 @@ export async function submitEditFlashcardForm(
   };
 
   try {
-    await flashcards.update(id, values);
+    await flashcards.update(deckId, id, values);
   } catch (error) {
     if (error instanceof FlashcardValidationError) {
       return {

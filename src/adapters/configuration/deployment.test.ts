@@ -3,13 +3,32 @@ import { validateDeploymentConfiguration } from "./deployment";
 
 const validEnvironment = {
   DATABASE_URL: "postgresql://learner:secret@railway.example:5432/railway",
+  GOOGLE_CLOUD_PROJECT_ID: "learning-project",
+  GOOGLE_CLOUD_TRANSLATION_CREDENTIALS: JSON.stringify({
+    client_email: "translator@example.iam.gserviceaccount.com",
+    private_key: "google-secret",
+  }),
   OPENAI_API_KEY: "sk-test-secret",
   OPENAI_MODEL: "gpt-test",
+  RAILWAY_BUCKET_ENDPOINT: "https://storage.railway.app",
+  RAILWAY_BUCKET_REGION: "auto",
+  RAILWAY_BUCKET_NAME: "question-images",
+  RAILWAY_BUCKET_ACCESS_KEY_ID: "bucket-access",
+  RAILWAY_BUCKET_SECRET_ACCESS_KEY: "bucket-secret",
+  QUESTION_IMAGE_ALLOWED_ORIGINS: "http://localhost:3000,https://anki.example",
 };
 
 describe("deployment configuration", () => {
   it("accepts complete server-only production configuration", () => {
     expect(validateDeploymentConfiguration(validEnvironment)).toEqual({
+      bucket: {
+        endpoint: "https://storage.railway.app",
+        region: "auto",
+        bucket: "question-images",
+        accessKeyId: "bucket-access",
+        secretAccessKey: "bucket-secret",
+        allowedOrigins: ["http://localhost:3000", "https://anki.example"],
+      },
       databaseUrl:
         "postgresql://learner:secret@railway.example:5432/railway",
       openAI: {
@@ -17,6 +36,15 @@ describe("deployment configuration", () => {
         maximumSourceTextCharacters: 20_000,
         model: "gpt-test",
         timeoutMilliseconds: 60_000,
+      },
+      googleTranslation: {
+        credentials: {
+          client_email: "translator@example.iam.gserviceaccount.com",
+          private_key: "google-secret",
+        },
+        location: "global",
+        projectId: "learning-project",
+        timeoutMilliseconds: 10_000,
       },
     });
   });
@@ -33,6 +61,20 @@ describe("deployment configuration", () => {
     [
       { ...validEnvironment, NEXT_PUBLIC_OPENAI_API_KEY: "exposed" },
       "NEXT_PUBLIC_OPENAI_API_KEY must not be set because provider credentials are server-only.",
+    ],
+    [
+      {
+        ...validEnvironment,
+        NEXT_PUBLIC_GOOGLE_CLOUD_TRANSLATION_CREDENTIALS: "exposed",
+      },
+      "NEXT_PUBLIC_GOOGLE_CLOUD_TRANSLATION_CREDENTIALS must not be set because provider credentials are server-only.",
+    ],
+    [
+      {
+        ...validEnvironment,
+        NEXT_PUBLIC_RAILWAY_BUCKET_SECRET_ACCESS_KEY: "exposed",
+      },
+      "NEXT_PUBLIC_RAILWAY_BUCKET_SECRET_ACCESS_KEY must not be set because bucket credentials are server-only.",
     ],
   ])("rejects unsafe deployment configuration", (environment, message) => {
     expect(() => validateDeploymentConfiguration(environment)).toThrow(message);

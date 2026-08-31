@@ -9,6 +9,7 @@ describe("Flashcard maintenance forms", () => {
       new MemoryFlashcardRepository(),
     );
     const created = await flashcards.create({
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
     });
@@ -17,9 +18,9 @@ describe("Flashcard maintenance forms", () => {
     formData.set("back", "I drive a cab.");
 
     expect(
-      await submitEditFlashcardForm(flashcards, created.id, formData),
+      await submitEditFlashcardForm(flashcards, "deck-a", created.id, formData),
     ).toEqual({ status: "updated" });
-    expect(await flashcards.get(created.id)).toMatchObject({
+    expect(await flashcards.get("deck-a", created.id)).toMatchObject({
       front: "Jeg kjører taxi.",
       back: "I drive a cab.",
     });
@@ -30,6 +31,7 @@ describe("Flashcard maintenance forms", () => {
       new MemoryFlashcardRepository(),
     );
     const created = await flashcards.create({
+      deckId: "deck-a",
       front: "Jeg kjører drosje.",
       back: "I drive a taxi.",
     });
@@ -38,12 +40,12 @@ describe("Flashcard maintenance forms", () => {
     formData.set("back", "I drive a cab.");
 
     expect(
-      await submitEditFlashcardForm(flashcards, created.id, formData),
+      await submitEditFlashcardForm(flashcards, "deck-a", created.id, formData),
     ).toEqual({
       status: "invalid",
       fieldErrors: { front: "Enter a Norwegian Front." },
       values: { front: "   ", back: "I drive a cab." },
     });
-    expect(await flashcards.get(created.id)).toEqual(created);
+    expect(await flashcards.get("deck-a", created.id)).toEqual(created);
   });
 });

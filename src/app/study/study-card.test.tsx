@@ -20,10 +20,10 @@ describe("study card", () => {
       <StudySession
         action={action}
         cards={[
-          { id: "card-0", front: "null", back: "zero", recallStreak: 0 },
-          { id: "card-1", front: "én", back: "one", recallStreak: 0 },
-          { id: "card-2", front: "to", back: "two", recallStreak: 0 },
-          { id: "card-3", front: "tre", back: "three", recallStreak: 0 },
+          { id: "card-0", deckId: "deck-a", front: "null", back: "zero", recallStreak: 0 },
+          { id: "card-1", deckId: "deck-a", front: "én", back: "one", recallStreak: 0 },
+          { id: "card-2", deckId: "deck-a", front: "to", back: "two", recallStreak: 0 },
+          { id: "card-3", deckId: "deck-a", front: "tre", back: "three", recallStreak: 0 },
         ]}
         initialAttemptId="attempt-0"
         initialCardId="card-0"
@@ -106,6 +106,7 @@ describe("study card", () => {
         attemptId="attempt-1"
         flashcard={{
           id: "card-1",
+          deckId: "deck-a",
           front: "Jeg kjører drosje.",
           back: "I drive a taxi.",
           recallStreak: 0,
@@ -135,6 +136,7 @@ describe("study card", () => {
         attemptId="attempt-1"
         flashcard={{
           id: "card-1",
+          deckId: "deck-a",
           front: "Jeg kjører drosje.",
           back: "I drive a taxi.",
           recallStreak: 0,
@@ -159,7 +161,7 @@ describe("study card", () => {
 
 function weightedCardsForStudy() {
   return [
-    { id: "card-0", front: "null", back: "zero", recallStreak: 0 },
-    { id: "card-1", front: "én", back: "one", recallStreak: 0 },
+    { id: "card-0", deckId: "deck-a", front: "null", back: "zero", recallStreak: 0 },
+    { id: "card-1", deckId: "deck-a", front: "én", back: "one", recallStreak: 0 },
   ];
 }

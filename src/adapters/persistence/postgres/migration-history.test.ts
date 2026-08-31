@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   requireExpectedDatabaseObjects,
-  v1ExpectedDatabaseObjects,
+  expectedDatabaseObjects,
 } from "./migration-readiness";
 
 describe("complete PostgreSQL migration history", () => {
@@ -15,7 +15,7 @@ describe("complete PostgreSQL migration history", () => {
   });
 
   it(
-    "creates the complete v1 schema on a clean database",
+    "creates the complete schema on a clean database",
     async () => {
       client = await PGlite.create();
 
@@ -26,18 +26,32 @@ describe("complete PostgreSQL migration history", () => {
       from pg_tables
       where schemaname = 'public'
         and tablename in (
+          'answer_options',
           'card_drafts',
+          'flashcard_decks',
           'flashcards',
           'generation_instructions',
+          'question_image_cleanup',
+          'question_image_uploads',
+          'quizzes',
+          'quiz_questions',
+          'quiz_results',
           'source_texts',
           'study_results'
         )
       order by tablename
     `);
       expect(relations.rows.map(({ tablename }) => tablename)).toEqual([
+        "answer_options",
         "card_drafts",
+        "flashcard_decks",
         "flashcards",
         "generation_instructions",
+        "question_image_cleanup",
+        "question_image_uploads",
+        "quiz_questions",
+        "quiz_results",
+        "quizzes",
         "source_texts",
         "study_results",
       ]);
@@ -57,7 +71,7 @@ describe("complete PostgreSQL migration history", () => {
       `);
       expect(() =>
         requireExpectedDatabaseObjects(
-          v1ExpectedDatabaseObjects,
+          expectedDatabaseObjects,
           databaseObjects.rows.map(({ object_name }) => object_name),
         ),
       ).not.toThrow();

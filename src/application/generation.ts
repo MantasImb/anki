@@ -14,6 +14,7 @@ For every Card Draft:
 
 export type SourceText = {
   id: string;
+  deckId: string;
   content: string;
   generationStatus: "ready" | "completed" | "failed";
 };
@@ -28,14 +29,21 @@ export type CardDraft = GeneratedCardDraft & {
 export type SourceWithDrafts = SourceText & { drafts: CardDraft[] };
 
 export interface GenerationRepository {
-  createSource(content: string): Promise<SourceText>;
-  claimFailedSource(sourceTextId: string): Promise<SourceText | undefined>;
-  failGeneration(sourceTextId: string): Promise<SourceWithDrafts>;
+  createSource(deckId: string, content: string): Promise<SourceText>;
+  claimFailedSource(
+    deckId: string,
+    sourceTextId: string,
+  ): Promise<SourceText | undefined>;
+  failGeneration(deckId: string, sourceTextId: string): Promise<SourceWithDrafts>;
   completeGeneration(
+    deckId: string,
     sourceTextId: string,
     drafts: GeneratedCardDraft[],
   ): Promise<SourceWithDrafts>;
-  getSourceWithDrafts(id: string): Promise<SourceWithDrafts | undefined>;
+  getSourceWithDrafts(
+    deckId: string,
+    id: string,
+  ): Promise<SourceWithDrafts | undefined>;
 }
 
 export interface CardDraftGenerator {
@@ -123,7 +131,7 @@ export function createGenerationService({
         throw error;
       }
 
-      await repository.failGeneration(source.id);
+      await repository.failGeneration(source.deckId, source.id);
       try {
         logger?.generationFailed({
           sourceTextId: source.id,
@@ -136,11 +144,11 @@ export function createGenerationService({
       throw new GenerationAttemptFailedError(source.id, error.category);
     }
 
-    return repository.completeGeneration(source.id, drafts);
+    return repository.completeGeneration(source.deckId, source.id, drafts);
   }
 
   return {
-    async generate(sourceText: string) {
+    async generate(deckId: string, sourceText: string) {
       if (!sourceText.trim()) {
         throw new SourceTextValidationError({
           sourceText: "Enter Norwegian Source Text.",
@@ -153,19 +161,19 @@ export function createGenerationService({
         });
       }
 
-      const source = await repository.createSource(sourceText);
+      const source = await repository.createSource(deckId, sourceText);
       return attempt(source);
     },
-    async retry(id: string) {
-      const source = await repository.claimFailedSource(id);
+    async retry(deckId: string, id: string) {
+      const source = await repository.claimFailedSource(deckId, id);
       if (!source) {
         throw new SourceTextNotRetryableError();
       }
 
       return attempt(source);
     },
-    getSourceWithDrafts(id: string) {
-      return repository.getSourceWithDrafts(id);
+    getSourceWithDrafts(deckId: string, id: string) {
+      return repository.getSourceWithDrafts(deckId, id);
     },
   };
 }

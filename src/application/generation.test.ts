@@ -7,9 +7,65 @@ import {
 } from "./generation";
 
 describe("Source Text generation", () => {
+  it("retains the selected Deck through generation", async () => {
+    const createSource = vi.fn(
+      async (deckId: string, content: string) => {
+        return {
+          id: "source-1",
+          deckId,
+          content,
+          generationStatus: "ready" as const,
+        };
+      },
+    );
+    const completeGeneration = vi.fn(async (
+      _deckId: string,
+      sourceTextId: string,
+      _drafts: unknown[],
+    ) => {
+      void _drafts;
+      return {
+        id: sourceTextId,
+        deckId: "deck-a",
+        content: "Drosjesjåføren skal opptre høflig.",
+        generationStatus: "completed" as const,
+        drafts: [],
+      };
+    });
+    const repository = {
+      createSource,
+      claimFailedSource: vi.fn(),
+      failGeneration: vi.fn(),
+      completeGeneration,
+      getSourceWithDrafts: vi.fn(),
+    };
+    const generation = createGenerationService({
+      repository,
+      generator: { generate: vi.fn().mockResolvedValue([]) },
+      maximumSourceTextCharacters: 20_000,
+    });
+
+    await expect(
+      generation.generate(
+        "deck-a",
+        "Drosjesjåføren skal opptre høflig.",
+      ),
+    ).resolves.toMatchObject({ deckId: "deck-a" });
+    expect(createSource).toHaveBeenCalledWith(
+      "deck-a",
+      "Drosjesjåføren skal opptre høflig.",
+    );
+    expect(completeGeneration).toHaveBeenCalledWith(
+      "deck-a",
+      "source-1",
+      [],
+    );
+  });
+
   it("keeps a generation failure retryable when diagnostic logging fails", async () => {
     const source = {
       id: "source-1",
+      deckId: "deck-a",
       content: "Drosjesjåføren skal opptre høflig.",
       generationStatus: "ready" as const,
     };
@@ -38,7 +94,7 @@ describe("Source Text generation", () => {
       maximumSourceTextCharacters: 20_000,
     });
 
-    await expect(generation.generate(source.content)).rejects.toMatchObject({
+    await expect(generation.generate("deck-a", source.content)).rejects.toMatchObject({
       sourceTextId: "source-1",
       category: "timeout",
     });
@@ -47,6 +103,7 @@ describe("Source Text generation", () => {
   it("allows only one caller to claim a failed Source Text for retry", async () => {
     const failedSource = {
       id: "source-1",
+      deckId: "deck-a",
       content: "Drosjesjåføren skal opptre høflig.",
       generationStatus: "failed" as const,
       drafts: [],
@@ -68,7 +125,7 @@ describe("Source Text generation", () => {
       maximumSourceTextCharacters: 20_000,
     });
 
-    await expect(generation.retry("source-1")).rejects.toThrow(
+    await expect(generation.retry("deck-a", "source-1")).rejects.toThrow(
       "Source Text is not available to retry.",
     );
     expect(generator.generate).not.toHaveBeenCalled();
@@ -77,6 +134,7 @@ describe("Source Text generation", () => {
   it("retries a retained failed Source Text into one complete collection", async () => {
     const failedSource = {
       id: "source-1",
+      deckId: "deck-a",
       content: "Drosjesjåføren skal opptre høflig.",
       generationStatus: "failed" as const,
       drafts: [],
@@ -92,7 +150,7 @@ describe("Source Text generation", () => {
         async claimFailedSource() {
           return { ...failedSource, generationStatus: "ready" as const };
         },
-        async completeGeneration(sourceTextId, drafts) {
+        async completeGeneration(_deckId, sourceTextId, drafts) {
           return {
             ...failedSource,
             id: sourceTextId,
@@ -117,7 +175,7 @@ describe("Source Text generation", () => {
       maximumSourceTextCharacters: 20_000,
     });
 
-    const completed = await generation.retry("source-1");
+    const completed = await generation.retry("deck-a", "source-1");
 
     expect(completed).toMatchObject({
       id: "source-1",
@@ -140,13 +198,14 @@ describe("Source Text generation", () => {
   ])("retains a %s Source Text without Card Drafts", async (category) => {
     let retained = {
       id: "source-1",
+      deckId: "deck-a",
       content: "Drosjesjåføren skal opptre høflig.",
       generationStatus: "ready" as "ready" | "completed" | "failed",
       drafts: [] as [],
     };
     const generation = createGenerationService({
       repository: {
-        async createSource(content) {
+        async createSource(_deckId, content) {
           retained = { ...retained, content };
           return retained;
         },
@@ -169,11 +228,13 @@ describe("Source Text generation", () => {
       maximumSourceTextCharacters: 20_000,
     });
 
-    await expect(generation.generate(retained.content)).rejects.toMatchObject({
+    await expect(
+      generation.generate("deck-a", retained.content),
+    ).rejects.toMatchObject({
       sourceTextId: "source-1",
       category,
     });
-    expect(await generation.getSourceWithDrafts("source-1")).toEqual({
+    expect(await generation.getSourceWithDrafts("deck-a", "source-1")).toEqual({
       ...retained,
       generationStatus: "failed",
       drafts: [],
@@ -183,6 +244,7 @@ describe("Source Text generation", () => {
   it("uses the saved Generation Instructions for a new attempt", async () => {
     const source = {
       id: "source-1",
+      deckId: "deck-a",
       content: "Drosjesjåføren skal opptre høflig.",
       generationStatus: "ready" as const,
     };
@@ -216,7 +278,7 @@ describe("Source Text generation", () => {
       maximumSourceTextCharacters: 20_000,
     });
 
-    await generation.generate(source.content);
+    await generation.generate("deck-a", source.content);
   });
 
   it("rejects blank Source Text before retaining or generating anything", async () => {
@@ -232,7 +294,7 @@ describe("Source Text generation", () => {
       maximumSourceTextCharacters: 20_000,
     });
 
-    await expect(generation.generate(" \n ")).rejects.toMatchObject({
+    await expect(generation.generate("deck-a", " \n ")).rejects.toMatchObject({
       fieldErrors: { sourceText: "Enter Norwegian Source Text." },
     });
     expect(repository.createSource).not.toHaveBeenCalled();
@@ -252,7 +314,9 @@ describe("Source Text generation", () => {
       maximumSourceTextCharacters: 10,
     });
 
-    await expect(generation.generate("elleve tegn")).rejects.toMatchObject({
+    await expect(
+      generation.generate("deck-a", "elleve tegn"),
+    ).rejects.toMatchObject({
       fieldErrors: {
         sourceText: "Source Text must be 10 characters or fewer.",
       },
@@ -265,11 +329,12 @@ describe("Source Text generation", () => {
     const events: string[] = [];
     const source = {
       id: "source-1",
+      deckId: "deck-a",
       content: "Drosjesjåføren skal opptre høflig.",
       generationStatus: "ready" as const,
     };
     const repository = {
-      async createSource(content: string) {
+      async createSource(_deckId: string, content: string) {
         events.push("source retained");
         return { ...source, content };
       },
@@ -298,7 +363,7 @@ describe("Source Text generation", () => {
       maximumSourceTextCharacters: 20_000,
     });
 
-    await generation.generate(source.content);
+    await generation.generate("deck-a", source.content);
 
     expect(events).toEqual([
       "source retained",

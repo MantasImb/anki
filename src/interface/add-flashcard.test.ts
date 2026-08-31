@@ -4,6 +4,22 @@ import { MemoryFlashcardRepository } from "../testing/memory-flashcard-repositor
 import { submitAddFlashcardForm } from "./add-flashcard";
 
 describe("Add Flashcard form submission", () => {
+  it("adds the Flashcard to the selected Deck", async () => {
+    const flashcards = createFlashcardService(
+      new MemoryFlashcardRepository(),
+    );
+    const formData = new FormData();
+    formData.set("front", "Jeg kjører drosje.");
+    formData.set("back", "I drive a taxi.");
+
+    expect(
+      await submitAddFlashcardForm(flashcards, "deck-a", formData),
+    ).toEqual({ status: "created" });
+    expect(await flashcards.list("deck-a")).toMatchObject([
+      { deckId: "deck-a", front: "Jeg kjører drosje." },
+    ]);
+  });
+
   it("returns both field errors without changing the collection", async () => {
     const flashcards = createFlashcardService(
       new MemoryFlashcardRepository(),
@@ -12,7 +28,7 @@ describe("Add Flashcard form submission", () => {
     formData.set("front", " ");
     formData.set("back", "");
 
-    expect(await submitAddFlashcardForm(flashcards, formData)).toEqual({
+    expect(await submitAddFlashcardForm(flashcards, "deck-a", formData)).toEqual({
       status: "invalid",
       fieldErrors: {
         front: "Enter a Norwegian Front.",
@@ -20,7 +36,7 @@ describe("Add Flashcard form submission", () => {
       },
       values: { front: " ", back: "" },
     });
-    expect(await flashcards.list()).toEqual([]);
+    expect(await flashcards.list("deck-a")).toEqual([]);
   });
 
   it("rejects a file submitted in place of text", async () => {
@@ -31,10 +47,10 @@ describe("Add Flashcard form submission", () => {
     formData.set("front", new File(["Hei"], "front.txt"));
     formData.set("back", "Hello");
 
-    expect(await submitAddFlashcardForm(flashcards, formData)).toMatchObject({
+    expect(await submitAddFlashcardForm(flashcards, "deck-a", formData)).toMatchObject({
       status: "invalid",
       fieldErrors: { front: "Enter a Norwegian Front." },
     });
-    expect(await flashcards.list()).toEqual([]);
+    expect(await flashcards.list("deck-a")).toEqual([]);
   });
 });

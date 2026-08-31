@@ -1,0 +1,2 @@
+ALTER TABLE "flashcards" ADD COLUMN "deck_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "flashcards" ADD CONSTRAINT "flashcards_deck_id_flashcard_decks_id_fk" FOREIGN KEY ("deck_id") REFERENCES "public"."flashcard_decks"("id") ON DELETE cascade ON UPDATE no action;

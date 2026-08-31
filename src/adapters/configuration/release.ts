@@ -23,3 +23,24 @@ export function requireReleaseConfiguration(environment: ReleaseEnvironment) {
     databaseIdentity,
   };
 }
+
+export function requireReleaseCutoverConfiguration(
+  environment: ReleaseEnvironment,
+) {
+  const configuration = requireReleaseConfiguration(environment);
+  const confirmation = environment.RELEASE_DATABASE_CONFIRMATION?.trim();
+
+  if (confirmation !== configuration.databaseIdentity) {
+    throw new Error(
+      `RELEASE_DATABASE_CONFIRMATION must exactly match ${configuration.databaseIdentity}.`,
+    );
+  }
+
+  if (environment.RELEASE_TRAFFIC_ISOLATED?.trim() !== "true") {
+    throw new Error(
+      "RELEASE_TRAFFIC_ISOLATED must be true before resetting the release database.",
+    );
+  }
+
+  return configuration;
+}

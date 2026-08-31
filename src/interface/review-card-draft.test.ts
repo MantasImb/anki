@@ -14,10 +14,10 @@ describe("Card Draft review form", () => {
     formData.set("front", "å opptre høflig");
     formData.set("back", "to behave politely");
 
-    expect(await submitCardDraftReview(reviews, "source-1", formData)).toEqual({
+    expect(await submitCardDraftReview(reviews, "deck-a", "source-1", formData)).toEqual({
       status: "approved",
     });
-    expect(reviews.approve).toHaveBeenCalledWith("source-1", "draft-1", {
+    expect(reviews.approve).toHaveBeenCalledWith("deck-a", "source-1", "draft-1", {
       front: "å opptre høflig",
       back: "to behave politely",
     });

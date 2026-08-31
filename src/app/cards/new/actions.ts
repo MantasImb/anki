@@ -12,7 +12,11 @@ export async function addFlashcard(
   _previousState: AddFlashcardFormState,
   formData: FormData,
 ): Promise<AddFlashcardFormState> {
-  const state = await submitAddFlashcardForm(getFlashcardService(), formData);
+  const deckId = formData.get("deckId");
+  if (typeof deckId !== "string" || !deckId) {
+    redirect("/decks");
+  }
+  const state = await submitAddFlashcardForm(getFlashcardService(), deckId, formData);
 
   if (state.status === "created") {
     revalidatePath("/");

@@ -12,10 +12,11 @@ export type RetryGenerationState =
 
 export async function submitGenerationRetry(
   generation: Pick<GenerationService, "retry">,
+  deckId: string,
   sourceTextId: string,
 ): Promise<RetryGenerationState> {
   try {
-    await generation.retry(sourceTextId);
+    await generation.retry(deckId, sourceTextId);
     return { status: "completed" };
   } catch (error) {
     if (error instanceof GenerationAttemptFailedError) {

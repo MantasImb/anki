@@ -4,8 +4,8 @@ A phone-friendly Next.js application for creating and studying Norwegian-to-Engl
 
 ## Required service setup
 
-You need a Railway PostgreSQL database and an OpenAI API project before Card
-Draft generation can run.
+You need a Railway PostgreSQL database, an OpenAI API project, and a Google
+Cloud project before every application workflow can run.
 
 ### 1. Create the PostgreSQL database
 
@@ -51,6 +51,16 @@ OPENAI_API_KEY=your-openai-project-key
 OPENAI_MODEL=gpt-5.6
 OPENAI_TIMEOUT_MS=60000
 SOURCE_TEXT_MAX_CHARACTERS=20000
+GOOGLE_CLOUD_PROJECT_ID=your-google-cloud-project-id
+GOOGLE_CLOUD_TRANSLATION_CREDENTIALS='{"client_email":"translator@example.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"}'
+GOOGLE_CLOUD_TRANSLATION_LOCATION=global
+GOOGLE_CLOUD_TRANSLATION_TIMEOUT_MS=10000
+RAILWAY_BUCKET_ENDPOINT=https://storage.railway.app
+RAILWAY_BUCKET_REGION=auto
+RAILWAY_BUCKET_NAME=your-railway-bucket-name
+RAILWAY_BUCKET_ACCESS_KEY_ID=your-railway-bucket-access-key
+RAILWAY_BUCKET_SECRET_ACCESS_KEY=your-railway-bucket-secret-key
+QUESTION_IMAGE_ALLOWED_ORIGINS=http://localhost:3000,https://your-app.vercel.app
 ```
 
 `SOURCE_TEXT_MAX_CHARACTERS` is optional and defaults to `20000`. It limits a
@@ -58,6 +68,49 @@ single Source Text before an OpenAI request is made.
 
 `OPENAI_TIMEOUT_MS` is optional and defaults to `60000` (60 seconds). A timed
 out attempt retains the Source Text and can be retried from the application.
+
+Enable Cloud Translation Advanced for the configured Google Cloud project and
+store a service account JSON key as the one-line
+`GOOGLE_CLOUD_TRANSLATION_CREDENTIALS` value. The location and timeout are
+optional and default to `global` and `10000` milliseconds.
+
+Create a private Railway Bucket and copy its S3-compatible endpoint, region,
+bucket name, access key, and secret key into the matching variables above.
+Then configure browser-upload CORS:
+
+1. Install the AWS CLI with `brew install awscli`.
+2. Load the environment variables with `set -a; source .env; set +a`. Use
+   `.env.local` instead if that is where the variables are stored.
+3. Apply a rule that allows `PUT`, upload headers, and every origin listed in
+   `QUESTION_IMAGE_ALLOWED_ORIGINS`:
+
+```bash
+AWS_ACCESS_KEY_ID="$RAILWAY_BUCKET_ACCESS_KEY_ID" \
+AWS_SECRET_ACCESS_KEY="$RAILWAY_BUCKET_SECRET_ACCESS_KEY" \
+aws s3api put-bucket-cors \
+  --bucket "$RAILWAY_BUCKET_NAME" \
+  --endpoint-url "$RAILWAY_BUCKET_ENDPOINT" \
+  --region "$RAILWAY_BUCKET_REGION" \
+  --cors-configuration '{"CORSRules":[{"AllowedHeaders":["*"],"AllowedMethods":["PUT"],"AllowedOrigins":["http://localhost:3000","https://your-app.vercel.app"],"MaxAgeSeconds":3000}]}'
+```
+
+4. Verify the live rule without printing credentials:
+
+```bash
+bun run bucket:cors:verify
+```
+
+Replace `https://your-app.vercel.app` in both the environment variable and the
+CORS command with each real Preview or Production origin before deployment.
+
+Railway accepts and returns an S3-style partial wildcard such as
+`https://*.vercel.app`, but live browser testing showed that Railway does not
+honor it for upload preflights. Use exact origins when possible. If arbitrary
+Vercel Preview origins are required and the broader access is acceptable, set
+the bucket rule to `"AllowedOrigins":["*"]`; the verifier accepts this as
+covering every origin in `QUESTION_IMAGE_ALLOWED_ORIGINS`. This does not make
+the private bucket public or remove the presigned-URL requirement, but any
+browser origin can use a valid presigned URL.
 
 Apply every versioned database migration, then start the application:
 
@@ -93,18 +146,37 @@ Add the same variables to the application's protected deployment environment:
 - `OPENAI_MODEL` — the configured Structured Outputs-capable model.
 - `OPENAI_TIMEOUT_MS` — optional provider request timeout in milliseconds.
 - `SOURCE_TEXT_MAX_CHARACTERS` — optional Source Text guardrail.
+- `GOOGLE_CLOUD_PROJECT_ID` — project with Cloud Translation Advanced enabled.
+- `GOOGLE_CLOUD_TRANSLATION_CREDENTIALS` — one-line service account JSON with
+  `client_email` and `private_key`, stored only in protected server
+  configuration.
+- `GOOGLE_CLOUD_TRANSLATION_LOCATION` — optional API location (defaults to
+  `global`).
+- `GOOGLE_CLOUD_TRANSLATION_TIMEOUT_MS` — optional request timeout in
+  milliseconds (defaults to `10000`).
+- `RAILWAY_BUCKET_ENDPOINT`, `RAILWAY_BUCKET_REGION`,
+  `RAILWAY_BUCKET_NAME`, `RAILWAY_BUCKET_ACCESS_KEY_ID`, and
+  `RAILWAY_BUCKET_SECRET_ACCESS_KEY` — private S3-compatible bucket settings.
+- `QUESTION_IMAGE_ALLOWED_ORIGINS` — comma-separated browser origins that the
+  deployment verifier expects bucket CORS to cover. It is not a separate
+  runtime Origin gate when the bucket itself uses `AllowedOrigins: ["*"]`.
 
 Apply migrations to the production database before using a deployment. Do not
-expose either credential to browser code.
+expose database, provider, or bucket credentials to browser code.
 
 Set these values in Vercel's **Preview** and **Production** environments as
 appropriate. Never create `NEXT_PUBLIC_DATABASE_URL` or
-`NEXT_PUBLIC_OPENAI_API_KEY`; Phase 8 startup validation rejects those names so
-credentials cannot be bundled for browser use.
+`NEXT_PUBLIC_OPENAI_API_KEY`. Also never expose Google credentials under
+`NEXT_PUBLIC_GOOGLE_CLOUD_TRANSLATION_CREDENTIALS`; startup validation rejects
+these names so credentials cannot be bundled for browser use. Bucket access
+keys and secrets must never use a `NEXT_PUBLIC_` prefix either.
 
-The generated Vercel URL is publicly reachable. V1 intentionally has no
-accounts, authorization, or Vercel Deployment Protection, so do not store
-material that should not be visible to someone who obtains the URL.
+The generated Vercel URL is publicly reachable. V2 intentionally has no
+accounts, authorization, ownership, or Vercel Deployment Protection, so anyone
+with the URL can read or change learning data. They can also repeatedly request
+presigned uploads up to the 25 MB per-image limit. Use provider and Bucket
+quotas appropriate for this accepted temporary risk; file-size validation is
+not abuse protection.
 
 ### Release preparation
 
@@ -121,31 +193,40 @@ the current shell. Copy the URL directly from the Railway service you intend to
 release and do not route this migration through `vercel env run`.
 The command prints only the credential-free `host:port/database` identity,
 applies every unapplied migration, verifies every checked-in migration against
-Drizzle's database journal, and checks required base tables, columns, and
-constraints. It does not call OpenAI, but it verifies that the API key and
-configurable model are present.
+Drizzle's database journal, and checks required v2 tables, columns, and
+constraints. It makes no provider calls, but validates the protected PostgreSQL,
+OpenAI, Google Translation, Railway Bucket, and allowed-origin configuration.
 Application startup performs the same application configuration validation and
 fails with the offending variable name without printing its value.
 
-Use a separate disposable Railway database for Vercel Preview. The automated
-phone journey invokes the configured OpenAI provider. Its fixture deletes the
-run-marked Flashcards afterward, including after an assertion failure, while
-Source Text, Card Draft, and Study Result audit records remain durable:
+Use a separate disposable Railway database for Vercel Preview. The two automated
+phone journeys create run-marked collections and delete them after success or
+failure. The Quiz journey invokes live Google Translation and Railway Bucket
+upload/read; the Deck journey is provider-free:
 
 ```bash
 bunx playwright install chromium
 RELEASE_BASE_URL=https://your-preview.vercel.app bun run test:e2e:release
 ```
 
-The full provisioning, phone/desktop validation, safe-log checks, and manual
-smoke test are in [`docs/release-checklist.md`](docs/release-checklist.md). A
-beginner-friendly explanation of the browser test is in
+A beginner-friendly explanation of the browser test, including its live-service
+boundaries and failure diagnostics, is in
 [`docs/playwright-release-test.md`](docs/playwright-release-test.md).
 
-The Phase 6 migrations create append-only Study Results, preserve that history
-when a Flashcard is deleted, and constrain Recall Streaks to the supported
-zero-through-three range. Run `bun run db:migrate` after pulling this phase
-before opening `/study`.
+For the one-time destructive production cutover, first run
+`bun run release:target` and compare the safe identity with the exact Railway
+service. Immediately before the reset, obtain explicit confirmation for that
+identity and deletion scope. Use a new Railway database that no deployment
+references, or disable application traffic to the existing target for the whole
+reset, migration, and verification window. Set `RELEASE_TRAFFIC_ISOLATED=true`
+and `RELEASE_DATABASE_CONFIRMATION` to the printed `host:port/database` value,
+then run `bun run release:cutover:v2`. The command permanently removes the
+target's application data and Drizzle migration history, reapplies the complete
+v2 schema, and verifies a fresh database with no default Deck or Quiz, no
+customized Generation Instructions, and the bundled Default Generation
+Template. Keep traffic isolated until the v2 deployment is live; for a new
+database, switch Vercel's `DATABASE_URL` only after verification. Never run the
+command against Preview or Production merely to diagnose configuration.
 
 ## Database changes
 
@@ -165,7 +246,10 @@ bun run test
 bun run build
 ```
 
-These normal checks do not make live OpenAI requests. The opt-in deployed
-release journey is deliberately separate under `test:e2e:release`.
+These normal checks make no live OpenAI, Google Translation, Railway Bucket, or
+Vercel requests. The opt-in deployed journeys are deliberately separate under
+`test:e2e:release`.
 
-Product requirements and architectural decisions live in [`docs/`](docs/). The phased delivery plan is in [`plans/norwegian-flashcards-v1.md`](plans/norwegian-flashcards-v1.md).
+Product requirements and architectural decisions live in [`docs/`](docs/). The
+v2 delivery plan is in
+[`plans/norwegian-learning-v2.md`](plans/norwegian-learning-v2.md).

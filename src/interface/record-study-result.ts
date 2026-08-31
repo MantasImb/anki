@@ -1,6 +1,6 @@
 import type {
   createStudyService,
-  RecordStudyResult,
+  RecordDeckStudyResult,
   StudyAssessment,
 } from "../application/study";
 
@@ -28,16 +28,19 @@ function isAssessment(value: unknown): value is StudyAssessment {
 
 export async function submitStudyAssessment(
   study: Pick<StudyService, "recordResult">,
+  deckId: string,
   formData: FormData,
 ) {
-  const input: RecordStudyResult = {
+  const input: RecordDeckStudyResult = {
     id: formData.get("attemptId") as string,
+    deckId,
     flashcardId: formData.get("flashcardId") as string,
     assessment: formData.get("assessment") as StudyAssessment,
   };
 
   if (
     !isUuid(input.id) ||
+    !isUuid(input.deckId) ||
     !isUuid(input.flashcardId) ||
     !isAssessment(input.assessment)
   ) {

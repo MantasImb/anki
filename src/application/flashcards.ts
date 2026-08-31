@@ -1,6 +1,12 @@
-export type NewFlashcard = {
+import { calculateLearningProgress } from "./learning-progress";
+
+export type FlashcardContent = {
   front: string;
   back: string;
+};
+
+export type NewFlashcard = FlashcardContent & {
+  deckId: string;
 };
 
 export type Flashcard = NewFlashcard & {
@@ -11,10 +17,14 @@ export type Flashcard = NewFlashcard & {
 
 export interface FlashcardRepository {
   create(input: NewFlashcard): Promise<Flashcard>;
-  delete(id: string): Promise<boolean>;
-  get(id: string): Promise<Flashcard | undefined>;
-  list(): Promise<Flashcard[]>;
-  update(id: string, input: NewFlashcard): Promise<Flashcard | undefined>;
+  delete(deckId: string, id: string): Promise<boolean>;
+  get(deckId: string, id: string): Promise<Flashcard | undefined>;
+  list(deckId: string): Promise<Flashcard[]>;
+  update(
+    deckId: string,
+    id: string,
+    input: FlashcardContent,
+  ): Promise<Flashcard | undefined>;
 }
 
 export class FlashcardNotFoundError extends Error {
@@ -26,15 +36,19 @@ export class FlashcardNotFoundError extends Error {
 
 export class FlashcardValidationError extends Error {
   constructor(
-    readonly fieldErrors: Partial<Record<keyof NewFlashcard, string>>,
+    readonly fieldErrors: Partial<Record<keyof FlashcardContent, string>>,
   ) {
     super("Flashcard content is invalid.");
     this.name = "FlashcardValidationError";
   }
 }
 
-function validateFlashcard(input: NewFlashcard) {
-  const fieldErrors: Partial<Record<keyof NewFlashcard, string>> = {};
+export function calculateDeckProgress(flashcards: Flashcard[]) {
+  return calculateLearningProgress(flashcards);
+}
+
+function validateFlashcard(input: FlashcardContent) {
+  const fieldErrors: Partial<Record<keyof FlashcardContent, string>> = {};
 
   if (!input.front.trim()) {
     fieldErrors.front = "Enter a Norwegian Front.";
@@ -55,22 +69,22 @@ export function createFlashcardService(repository: FlashcardRepository) {
       validateFlashcard(input);
       return repository.create(input);
     },
-    async delete(id: string) {
-      const deleted = await repository.delete(id);
+    async delete(deckId: string, id: string) {
+      const deleted = await repository.delete(deckId, id);
 
       if (!deleted) {
         throw new FlashcardNotFoundError();
       }
     },
-    get(id: string) {
-      return repository.get(id);
+    get(deckId: string, id: string) {
+      return repository.get(deckId, id);
     },
-    list() {
-      return repository.list();
+    list(deckId: string) {
+      return repository.list(deckId);
     },
-    async update(id: string, input: NewFlashcard) {
+    async update(deckId: string, id: string, input: FlashcardContent) {
       validateFlashcard(input);
-      const updated = await repository.update(id, input);
+      const updated = await repository.update(deckId, id, input);
 
       if (!updated) {
         throw new FlashcardNotFoundError();

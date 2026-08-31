@@ -13,6 +13,7 @@ class MemoryCardDraftReviewRepository implements CardDraftReviewRepository {
   constructor(private draft: CardDraft) {}
 
   async updatePending(
+    _deckId: string,
     sourceTextId: string,
     id: string,
     input: { front: string; back: string },
@@ -30,6 +31,7 @@ class MemoryCardDraftReviewRepository implements CardDraftReviewRepository {
   }
 
   async approve(
+    deckId: string,
     sourceTextId: string,
     id: string,
     input: { front: string; back: string },
@@ -48,6 +50,7 @@ class MemoryCardDraftReviewRepository implements CardDraftReviewRepository {
 
     const flashcard = {
       id: crypto.randomUUID(),
+      deckId,
       ...input,
       recallStreak: 0,
       sourceTextId: this.draft.sourceTextId,
@@ -69,6 +72,7 @@ class MemoryCardDraftReviewRepository implements CardDraftReviewRepository {
   }
 
   async reject(
+    _deckId: string,
     sourceTextId: string,
     id: string,
   ): Promise<CardDraft | undefined> {
@@ -96,7 +100,7 @@ describe("Card Draft review", () => {
     });
     const reviews = createCardDraftReviewService(repository);
 
-    const approval = await reviews.approve("source-1", "draft-1", {
+    const approval = await reviews.approve("deck-a", "source-1", "draft-1", {
       front: "å opptre høflig",
       back: "to behave politely",
     });
@@ -108,6 +112,7 @@ describe("Card Draft review", () => {
         reviewStatus: "approved",
       },
       flashcard: {
+        deckId: "deck-a",
         front: "å opptre høflig",
         back: "to behave politely",
         recallStreak: 0,
@@ -127,11 +132,11 @@ describe("Card Draft review", () => {
     });
     const reviews = createCardDraftReviewService(repository);
 
-    const first = await reviews.approve("source-1", "draft-1", {
+    const first = await reviews.approve("deck-a", "source-1", "draft-1", {
       front: "høflig",
       back: "polite",
     });
-    const repeated = await reviews.approve("source-1", "draft-1", {
+    const repeated = await reviews.approve("deck-a", "source-1", "draft-1", {
       front: "høflig",
       back: "polite",
     });
@@ -150,7 +155,7 @@ describe("Card Draft review", () => {
     });
     const reviews = createCardDraftReviewService(repository);
 
-    const updated = await reviews.update("source-1", "draft-1", {
+    const updated = await reviews.update("deck-a", "source-1", "draft-1", {
       front: "å opptre høflig",
       back: "to behave politely",
     });
@@ -172,7 +177,7 @@ describe("Card Draft review", () => {
     });
     const reviews = createCardDraftReviewService(repository);
 
-    const rejected = await reviews.reject("source-1", "draft-1");
+    const rejected = await reviews.reject("deck-a", "source-1", "draft-1");
 
     expect(rejected.reviewStatus).toBe("rejected");
     expect(repository.flashcards).toEqual([]);

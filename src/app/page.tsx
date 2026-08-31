@@ -7,36 +7,24 @@ export default function Home() {
         Norwegian learning
       </p>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-        Norwegian Flashcards
+        Norwegian Learning
       </h1>
       <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
-        Create Norwegian-to-English flashcards and study the same collection
-        from your phone or desktop.
+        Organize Norwegian practice into independent Flashcard Decks and
+        Quizzes, available from your phone or desktop.
       </p>
       <div className="mt-10 flex flex-col gap-3 sm:flex-row">
         <Link
           className="inline-flex min-h-12 items-center justify-center rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white transition hover:bg-sky-800"
-          href="/study"
+          href="/decks"
         >
-          Start Studying
+          Open Flashcard Decks
         </Link>
         <Link
           className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50"
-          href="/generate"
+          href="/quizzes"
         >
-          Generate Card Drafts
-        </Link>
-        <Link
-          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50"
-          href="/cards/new"
-        >
-          Add Flashcard
-        </Link>
-        <Link
-          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50"
-          href="/cards"
-        >
-          Browse collection
+          Open Quizzes
         </Link>
       </div>
     </main>

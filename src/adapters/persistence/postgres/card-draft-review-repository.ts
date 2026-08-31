@@ -1,10 +1,10 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import type {
   CardDraftReviewRepository,
   DraftApproval,
 } from "../../../application/draft-review";
-import type { NewFlashcard } from "../../../application/flashcards";
+import type { FlashcardContent } from "../../../application/flashcards";
 import type { CardDraft } from "../../../application/generation";
 import * as schema from "./schema";
 
@@ -25,6 +25,7 @@ const draftSelection = {
 
 const flashcardSelection = {
   id: schema.flashcards.id,
+  deckId: schema.flashcards.deckId,
   sourceTextId: schema.flashcards.sourceTextId,
   front: schema.flashcards.front,
   back: schema.flashcards.back,
@@ -38,11 +39,12 @@ export function createDrizzleCardDraftReviewRepository<
 ): CardDraftReviewRepository {
   return {
     async updatePending(
+      deckId: string,
       sourceTextId: string,
       id: string,
-      input: NewFlashcard,
+      input: FlashcardContent,
     ): Promise<CardDraft | undefined> {
-      if (!isUuid(sourceTextId) || !isUuid(id)) {
+      if (!isUuid(deckId) || !isUuid(sourceTextId) || !isUuid(id)) {
         return undefined;
       }
 
@@ -54,6 +56,13 @@ export function createDrizzleCardDraftReviewRepository<
             eq(schema.cardDrafts.id, id),
             eq(schema.cardDrafts.sourceTextId, sourceTextId),
             eq(schema.cardDrafts.reviewStatus, "pending"),
+            inArray(
+              schema.cardDrafts.sourceTextId,
+              database
+                .select({ id: schema.sourceTexts.id })
+                .from(schema.sourceTexts)
+                .where(eq(schema.sourceTexts.deckId, deckId)),
+            ),
           ),
         )
         .returning(draftSelection);
@@ -62,11 +71,12 @@ export function createDrizzleCardDraftReviewRepository<
     },
 
     approve(
+      deckId: string,
       sourceTextId: string,
       id: string,
-      input: NewFlashcard,
+      input: FlashcardContent,
     ): Promise<DraftApproval | undefined> {
-      if (!isUuid(sourceTextId) || !isUuid(id)) {
+      if (!isUuid(deckId) || !isUuid(sourceTextId) || !isUuid(id)) {
         return Promise.resolve(undefined);
       }
 
@@ -74,10 +84,15 @@ export function createDrizzleCardDraftReviewRepository<
         const [draft] = await transaction
           .select(draftSelection)
           .from(schema.cardDrafts)
+          .innerJoin(
+            schema.sourceTexts,
+            eq(schema.sourceTexts.id, schema.cardDrafts.sourceTextId),
+          )
           .where(
             and(
               eq(schema.cardDrafts.id, id),
               eq(schema.cardDrafts.sourceTextId, sourceTextId),
+              eq(schema.sourceTexts.deckId, deckId),
             ),
           )
           .for("update");
@@ -94,14 +109,19 @@ export function createDrizzleCardDraftReviewRepository<
           const [flashcard] = await transaction
             .select(flashcardSelection)
             .from(schema.flashcards)
-            .where(eq(schema.flashcards.id, draft.approvedFlashcardId));
+            .where(
+              and(
+                eq(schema.flashcards.id, draft.approvedFlashcardId),
+                eq(schema.flashcards.deckId, deckId),
+              ),
+            );
 
           return flashcard ? { draft, flashcard } : undefined;
         }
 
         const [flashcard] = await transaction
           .insert(schema.flashcards)
-          .values({ ...input, sourceTextId: draft.sourceTextId })
+          .values({ deckId, ...input, sourceTextId: draft.sourceTextId })
           .returning(flashcardSelection);
 
         const [approvedDraft] = await transaction
@@ -118,8 +138,11 @@ export function createDrizzleCardDraftReviewRepository<
       });
     },
 
-    approveRemaining(sourceTextId: string): Promise<DraftApproval[]> {
-      if (!isUuid(sourceTextId)) {
+    approveRemaining(
+      deckId: string,
+      sourceTextId: string,
+    ): Promise<DraftApproval[]> {
+      if (!isUuid(deckId) || !isUuid(sourceTextId)) {
         return Promise.resolve([]);
       }
 
@@ -127,10 +150,15 @@ export function createDrizzleCardDraftReviewRepository<
         const drafts = await transaction
           .select(draftSelection)
           .from(schema.cardDrafts)
+          .innerJoin(
+            schema.sourceTexts,
+            eq(schema.sourceTexts.id, schema.cardDrafts.sourceTextId),
+          )
           .where(
             and(
               eq(schema.cardDrafts.sourceTextId, sourceTextId),
               eq(schema.cardDrafts.reviewStatus, "pending"),
+              eq(schema.sourceTexts.deckId, deckId),
             ),
           )
           .orderBy(asc(schema.cardDrafts.position))
@@ -141,6 +169,7 @@ export function createDrizzleCardDraftReviewRepository<
           const [flashcard] = await transaction
             .insert(schema.flashcards)
             .values({
+              deckId,
               front: draft.front,
               back: draft.back,
               sourceTextId: draft.sourceTextId,
@@ -163,10 +192,11 @@ export function createDrizzleCardDraftReviewRepository<
     },
 
     async reject(
+      deckId: string,
       sourceTextId: string,
       id: string,
     ): Promise<CardDraft | undefined> {
-      if (!isUuid(sourceTextId) || !isUuid(id)) {
+      if (!isUuid(deckId) || !isUuid(sourceTextId) || !isUuid(id)) {
         return undefined;
       }
 
@@ -178,6 +208,13 @@ export function createDrizzleCardDraftReviewRepository<
             eq(schema.cardDrafts.id, id),
             eq(schema.cardDrafts.sourceTextId, sourceTextId),
             eq(schema.cardDrafts.reviewStatus, "pending"),
+            inArray(
+              schema.cardDrafts.sourceTextId,
+              database
+                .select({ id: schema.sourceTexts.id })
+                .from(schema.sourceTexts)
+                .where(eq(schema.sourceTexts.deckId, deckId)),
+            ),
           ),
         )
         .returning(draftSelection);
@@ -194,6 +231,13 @@ export function createDrizzleCardDraftReviewRepository<
             eq(schema.cardDrafts.id, id),
             eq(schema.cardDrafts.sourceTextId, sourceTextId),
             eq(schema.cardDrafts.reviewStatus, "rejected"),
+            inArray(
+              schema.cardDrafts.sourceTextId,
+              database
+                .select({ id: schema.sourceTexts.id })
+                .from(schema.sourceTexts)
+                .where(eq(schema.sourceTexts.deckId, deckId)),
+            ),
           ),
         );
 

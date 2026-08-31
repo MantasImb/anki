@@ -46,6 +46,6 @@ export function getGenerationService() {
   });
 }
 
-export function getSourceWithDrafts(id: string) {
-  return getPostgresGenerationRepository().getSourceWithDrafts(id);
+export function getSourceWithDrafts(deckId: string, id: string) {
+  return getPostgresGenerationRepository().getSourceWithDrafts(deckId, id);
 }
