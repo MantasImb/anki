@@ -8,7 +8,10 @@ import {
 import { getQuizService } from "@/composition/collections";
 import { getQuizStudyService } from "@/composition/quiz-study";
 import { getQuestionImageService } from "@/composition/question-images";
-import { recordQuizStudyAnswer } from "./actions";
+import {
+  recordQuizStudyAnswer,
+  refreshQuizQuestionImage,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,19 +27,15 @@ export default async function QuizStudyPage({
   ]);
   if (!quiz) notFound();
 
-  const imageService = allQuestions.some(({ image }) => image)
-    ? getQuestionImageService()
-    : undefined;
-  const questions = await Promise.all(allQuestions.map(async (stored) => {
-    const question = prepareQuizStudyQuestion(stored);
-    return {
-      ...question,
-      ...(question.image && imageService
-        ? { imageUrl: await imageService.readUrl(question.image) }
-        : {}),
-    };
-  }));
-  const question = createQuizStudyScheduler().next(questions);
+  const preparedQuestions = allQuestions.map(prepareQuizStudyQuestion);
+  const question = createQuizStudyScheduler().next(preparedQuestions);
+  const imageService = question?.image ? getQuestionImageService() : undefined;
+  const questions = await Promise.all(preparedQuestions.map(async (candidate) => ({
+    ...candidate,
+    ...(candidate.id === question?.id && candidate.image && imageService
+      ? { imageUrl: await imageService.readUrl(candidate.image) }
+      : {}),
+  })));
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
@@ -62,6 +61,7 @@ export default async function QuizStudyPage({
           initialAttemptId={crypto.randomUUID()}
           initialQuestionId={question.id}
           questions={questions}
+          refreshImageUrl={refreshQuizQuestionImage.bind(null, quiz.id)}
         />
       ) : (
         <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-12">

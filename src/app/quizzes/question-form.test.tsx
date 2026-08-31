@@ -237,7 +237,11 @@ describe("Quiz Question form", () => {
 
   it("uploads and completes a new image before submitting the Question", async () => {
     const user = userEvent.setup();
-    const action = vi.fn(async () => ({ status: "idle" as const }));
+    const action = vi.fn(async (_state, formData: FormData) =>
+      formData.get("intent") === "prepare-save"
+        ? { status: "ready" as const }
+        : { status: "idle" as const }
+    );
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
         uploadId: "b4d89f5b-e0f8-41f2-86bb-87e1bb5f9c18",
@@ -257,15 +261,51 @@ describe("Quiz Question form", () => {
 
     await user.click(screen.getByRole("button", { name: "Save Question" }));
 
-    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(2));
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
       "/api/question-images/authorize",
       "https://bucket.example/upload",
       "/api/question-images/complete",
     ]);
-    expect((action.mock.calls[0][1] as FormData).get("imageUploadId")).toBe(
+    expect((action.mock.calls[1][1] as FormData).get("imageUploadId")).toBe(
       "b4d89f5b-e0f8-41f2-86bb-87e1bb5f9c18",
     );
+  });
+
+  it("does not upload a selected image when Question content is invalid", async () => {
+    const user = userEvent.setup();
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const action = vi.fn(async (_state, formData: FormData) => ({
+      status: "invalid" as const,
+      fieldErrors: {
+        promptNorwegian: "Enter a Norwegian prompt.",
+        promptEnglish: "Enter its English translation.",
+      },
+      values: {
+        promptNorwegian: String(formData.get("promptNorwegian")),
+        promptEnglish: String(formData.get("promptEnglish")),
+        options: [
+          { norwegian: "", english: "", isCorrect: true },
+          { norwegian: "", english: "", isCorrect: false },
+        ],
+      },
+    }));
+    render(<QuestionForm action={action} />);
+    await user.upload(
+      screen.getByLabelText("Question Image"),
+      new File([new Uint8Array([1, 2, 3])], "fjord.png", {
+        type: "image/png",
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save Question" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Question was not saved",
+    );
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("keeps the current image during translation and can mark it for removal", async () => {

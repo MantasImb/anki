@@ -74,7 +74,7 @@ export class QuizQuestionNotFoundError extends Error {
   }
 }
 
-function validateQuestion(input: QuizQuestionContent) {
+export function validateQuizQuestion(input: QuizQuestionContent) {
   const fieldErrors: QuizQuestionFieldErrors = {};
   if (!input.promptNorwegian.trim()) {
     fieldErrors.promptNorwegian = "Enter a Norwegian prompt.";
@@ -138,7 +138,7 @@ export function createQuizQuestionService(
 ) {
   return {
     async create(input: NewQuizQuestion) {
-      validateQuestion(input);
+      validateQuizQuestion(input);
       return repository.create(prepareQuestion(input), input.imageUploadId);
     },
     get(quizId: string, id: string) {
@@ -152,7 +152,7 @@ export function createQuizQuestionService(
       id: string,
       input: QuizQuestionInput,
     ) {
-      validateQuestion(input);
+      validateQuizQuestion(input);
       const existing = await repository.get(quizId, id);
       if (!existing) throw new QuizQuestionNotFoundError();
       const imageChange: QuestionImageChange = input.imageUploadId

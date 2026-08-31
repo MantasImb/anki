@@ -319,6 +319,59 @@ describe("single-answer Quiz study", () => {
     expect(screen.queryByText("Hva betyr høflig?")).toBeNull();
   });
 
+  it("refreshes an image URL when its Question becomes active", async () => {
+    const action = vi.fn(async () => ({
+      questionId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",
+      outcome: "incorrect" as const,
+      translationHelpUsed: false,
+      recallStreak: 0,
+      correctOptionIds: ["bf56aef6-a583-42cb-af8a-d21a4d2a2165"],
+    }));
+    const next = singleQuestion({
+      id: "d5766f26-f3f0-42d1-bfa4-67eadacf3042",
+      promptNorwegian: "Hva ser du?",
+      promptEnglish: "What do you see?",
+      image: {
+        objectKey: "question-images/a/fjord.gif",
+        originalName: "fjord.gif",
+        contentType: "image/gif",
+        byteSize: 2048,
+      },
+      options: [
+        { id: "2eb3295c-f69e-43af-87e5-bfd73e49404b", norwegian: "vann", english: "water", isCorrect: true, position: 0 },
+        { id: "e23a8ea5-e81e-4b34-b074-18415080af35", norwegian: "ild", english: "fire", isCorrect: false, position: 1 },
+      ],
+    });
+    const refreshImageUrl = vi.fn(async () =>
+      "https://bucket.example/fresh-fjord.gif"
+    );
+    render(
+      <QuizStudySession
+        action={action}
+        initialAttemptId="8de9e5d4-2788-47af-8767-d1a4b6a1b0fd"
+        initialQuestionId="420d7e63-b4e4-4f5c-b88d-93ab42add48a"
+        questions={[
+          prepareQuizStudyQuestion(singleQuestion()),
+          {
+            ...prepareQuizStudyQuestion(next),
+            imageUrl: "https://bucket.example/expired-fjord.gif",
+          },
+        ]}
+        random={() => 0}
+        refreshImageUrl={refreshImageUrl}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("radio", { name: "sint" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Next Question" }));
+
+    await waitFor(() => expect(refreshImageUrl).toHaveBeenCalledWith(next.id));
+    await waitFor(() => expect(
+      screen.getByRole("img", { name: "Question Image" }),
+    ).toHaveProperty("src", "https://bucket.example/fresh-fjord.gif"));
+  });
+
   it("locks answer and Translation Help controls while submission is pending", async () => {
     let finish: ((value: {
       questionId: string;

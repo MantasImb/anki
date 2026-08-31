@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   createQuizStudyScheduler,
   shuffleAnswerOptions,
@@ -50,12 +50,14 @@ export function QuizStudySession({
   initialQuestionId,
   questions: initialQuestions,
   random,
+  refreshImageUrl,
 }: {
   action: QuizStudyAction;
   initialAttemptId: string;
   initialQuestionId: string;
   questions: Array<QuizStudyQuestion & { imageUrl?: string }>;
   random?: () => number;
+  refreshImageUrl?: (questionId: string) => Promise<string | undefined>;
 }) {
   const scheduler = useRef(createQuizStudyScheduler(random ?? Math.random));
   const [questions, setQuestions] = useState(initialQuestions);
@@ -68,6 +70,21 @@ export function QuizStudySession({
   const [error, setError] = useState<string>();
   const [translationHelpUsed, setTranslationHelpUsed] = useState(false);
   const question = questions.find(({ id }) => id === currentQuestionId);
+  useEffect(() => {
+    if (!question?.image || !refreshImageUrl) return;
+    let active = true;
+    void refreshImageUrl(question.id).then((imageUrl) => {
+      if (!active || !imageUrl) return;
+      setQuestions((current) => current.map((candidate) =>
+        candidate.id === question.id ? { ...candidate, imageUrl } : candidate
+      ));
+    }).catch(() => {
+      // Keep the existing URL visible; the next activation retries signing.
+    });
+    return () => {
+      active = false;
+    };
+  }, [question?.id, question?.image, refreshImageUrl]);
   const options = useMemo(
     () => question
       ? shuffleAnswerOptions(

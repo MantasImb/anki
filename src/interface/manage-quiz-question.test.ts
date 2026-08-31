@@ -184,6 +184,110 @@ describe("Quiz Question form submission", () => {
     expect(translate).not.toHaveBeenCalled();
   });
 
+  it("retranslates changed Norwegian before saving an existing Question", async () => {
+    const questions = createQuizQuestionService(
+      new MemoryQuizQuestionRepository(),
+    );
+    const existing = await questions.create({
+      quizId: "quiz-a",
+      promptNorwegian: "Hva betyr høflig?",
+      promptEnglish: "What does polite mean?",
+      options: [
+        { norwegian: "vennlig", english: "friendly", isCorrect: true },
+        { norwegian: "sint", english: "angry", isCorrect: false },
+      ],
+    });
+    const translate = vi.fn(async () => ["What does friendly mean?"]);
+    const formData = new FormData();
+    formData.set("intent", "save");
+    formData.set("promptNorwegian", "Hva betyr vennlig?");
+    formData.set("promptEnglish", existing.promptEnglish);
+    existing.options.forEach((option, index) => {
+      formData.set(`options.${index}.id`, option.id);
+      formData.set(`options.${index}.norwegian`, option.norwegian);
+      formData.set(`options.${index}.english`, option.english);
+    });
+    formData.set("correctOptions", "0");
+
+    await expect(manageQuizQuestionForm(
+      questions,
+      createQuestionTranslationService({ translate }),
+      "quiz-a",
+      existing.id,
+      formData,
+    )).resolves.toMatchObject({
+      status: "translated",
+      translatedCount: 1,
+      values: {
+        promptNorwegian: "Hva betyr vennlig?",
+        promptEnglish: "What does friendly mean?",
+      },
+    });
+    expect(translate).toHaveBeenCalledWith(["Hva betyr vennlig?"]);
+    expect(await questions.get("quiz-a", existing.id)).toEqual(existing);
+  });
+
+  it("saves changed Norwegian after its returned English is reviewed", async () => {
+    const questions = createQuizQuestionService(
+      new MemoryQuizQuestionRepository(),
+    );
+    const existing = await questions.create({
+      quizId: "quiz-a",
+      promptNorwegian: "Hva betyr høflig?",
+      promptEnglish: "What does polite mean?",
+      options: [
+        { norwegian: "vennlig", english: "friendly", isCorrect: true },
+        { norwegian: "sint", english: "angry", isCorrect: false },
+      ],
+    });
+    const changed = new FormData();
+    changed.set("intent", "save");
+    changed.set("promptNorwegian", "Hva betyr vennlig?");
+    changed.set("promptEnglish", existing.promptEnglish);
+    existing.options.forEach((option, index) => {
+      changed.set(`options.${index}.id`, option.id);
+      changed.set(`options.${index}.norwegian`, option.norwegian);
+      changed.set(`options.${index}.english`, option.english);
+    });
+    changed.set("correctOptions", "0");
+    const translations = createQuestionTranslationService({
+      translate: async () => ["What does friendly mean?"],
+    });
+
+    const preview = await manageQuizQuestionForm(
+      questions,
+      translations,
+      "quiz-a",
+      existing.id,
+      changed,
+    );
+    expect(preview.status).toBe("translated");
+    if (preview.status !== "translated") throw new Error("Expected translation preview.");
+    const reviewed = new FormData();
+    reviewed.set("intent", "save");
+    reviewed.set("translationReviewKey", preview.translationReviewKey);
+    reviewed.set("promptNorwegian", preview.values.promptNorwegian);
+    reviewed.set("promptEnglish", preview.values.promptEnglish);
+    preview.values.options.forEach((option, index) => {
+      if (option.id) reviewed.set(`options.${index}.id`, option.id);
+      reviewed.set(`options.${index}.norwegian`, option.norwegian);
+      reviewed.set(`options.${index}.english`, option.english);
+    });
+    reviewed.set("correctOptions", "0");
+
+    await expect(manageQuizQuestionForm(
+      questions,
+      translations,
+      "quiz-a",
+      existing.id,
+      reviewed,
+    )).resolves.toEqual({ status: "saved", intent: "save" });
+    expect(await questions.get("quiz-a", existing.id)).toMatchObject({
+      promptNorwegian: "Hva betyr vennlig?",
+      promptEnglish: "What does friendly mean?",
+    });
+  });
+
   it("reports incomplete Norwegian locally without calling the provider", async () => {
     const translate = vi.fn();
     const formData = new FormData();
@@ -231,6 +335,7 @@ describe("Quiz Question form submission", () => {
       status: "translation-failed",
       message:
         "Automatic translation is unavailable. Enter or review the English text manually.",
+      translationReviewKey: expect.any(String),
       values: {
         promptNorwegian: "Hva betyr høflig?",
         promptEnglish: "My draft translation",

@@ -4,6 +4,7 @@ import {
   type QuizQuestion,
   type QuizQuestionFieldErrors,
   type QuizQuestionInput,
+  validateQuizQuestion,
   type createQuizQuestionService,
 } from "../application/quiz-questions";
 import type { createQuestionTranslationService } from "../application/question-translation";
@@ -25,13 +26,16 @@ export type QuizQuestionFormState =
   | {
       status: "translated";
       translatedCount: number;
+      translationReviewKey: string;
       values: QuizQuestionInput;
     }
   | {
       status: "translation-failed";
       message: string;
+      translationReviewKey: string;
       values: QuizQuestionInput;
     }
+  | { status: "ready" }
   | { status: "saved"; intent: QuizQuestionSaveIntent };
 
 function textValue(formData: FormData, name: string) {
@@ -70,6 +74,32 @@ function readContent(formData: FormData): QuizQuestionInput {
       ? { removeImage: true }
       : {}),
   };
+}
+
+function hasNorwegianChanges(
+  existing: QuizQuestion,
+  values: QuizQuestionInput,
+) {
+  if (values.promptNorwegian.trim() !== existing.promptNorwegian.trim()) {
+    return true;
+  }
+  return values.options.some((option) => {
+    const existingOption = option.id
+      ? existing.options.find(({ id }) => id === option.id)
+      : undefined;
+    return !existingOption ||
+      option.norwegian.trim() !== existingOption.norwegian.trim();
+  });
+}
+
+function norwegianReviewKey(values: QuizQuestionInput) {
+  return JSON.stringify({
+    prompt: values.promptNorwegian.trim(),
+    options: values.options.map((option) => ({
+      id: option.id ?? null,
+      norwegian: option.norwegian.trim(),
+    })),
+  });
 }
 
 export async function translateQuizQuestionForm(
@@ -137,6 +167,7 @@ export async function translateQuizQuestionForm(
     return {
       status: "translated",
       translatedCount: targets.length,
+      translationReviewKey: norwegianReviewKey(translatedValues),
       values: translatedValues,
     };
   } catch {
@@ -144,6 +175,7 @@ export async function translateQuizQuestionForm(
       status: "translation-failed",
       message:
         "Automatic translation is unavailable. Enter or review the English text manually.",
+      translationReviewKey: norwegianReviewKey(values),
       values,
     };
   }
@@ -182,6 +214,19 @@ export async function submitQuizQuestionForm(
   }
 }
 
+function validateQuizQuestionForm(formData: FormData): QuizQuestionFormState {
+  const values = readContent(formData);
+  try {
+    validateQuizQuestion(values);
+    return { status: "ready" };
+  } catch (error) {
+    if (error instanceof QuizQuestionValidationError) {
+      return { status: "invalid", fieldErrors: error.fieldErrors, values };
+    }
+    throw error;
+  }
+}
+
 export async function manageQuizQuestionForm(
   questions: Pick<QuizQuestionService, "create" | "get" | "update">,
   translations: QuestionTranslationService,
@@ -189,12 +234,23 @@ export async function manageQuizQuestionForm(
   questionId: string | undefined,
   formData: FormData,
 ): Promise<QuizQuestionFormState> {
+  const existing = questionId
+    ? await questions.get(quizId, questionId)
+    : undefined;
+  if (questionId && !existing) throw new QuizQuestionNotFoundError();
   if (textValue(formData, "intent") === "translate") {
-    const existing = questionId
-      ? await questions.get(quizId, questionId)
-      : undefined;
-    if (questionId && !existing) throw new QuizQuestionNotFoundError();
     return translateQuizQuestionForm(translations, existing, formData);
+  }
+  const values = readContent(formData);
+  if (
+    existing &&
+    hasNorwegianChanges(existing, values) &&
+    textValue(formData, "translationReviewKey") !== norwegianReviewKey(values)
+  ) {
+    return translateQuizQuestionForm(translations, existing, formData);
+  }
+  if (textValue(formData, "intent") === "prepare-save") {
+    return validateQuizQuestionForm(formData);
   }
   return submitQuizQuestionForm(
     questions,

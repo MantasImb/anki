@@ -53,6 +53,7 @@ export function QuestionForm({
   const [removeImage, setRemoveImage] = useState(false);
   const [imageError, setImageError] = useState<string>();
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [translationReviewKey, setTranslationReviewKey] = useState("");
 
   async function responseJson(response: Response) {
     const body = await response.json() as { message?: string; uploadId?: string; uploadUrl?: string };
@@ -95,31 +96,49 @@ export function QuestionForm({
     formData: FormData,
   ) {
     setImageError(undefined);
-    if (formData.get("intent") !== "translate") {
-      try {
-        if (selectedImage) {
+    const intent = formData.get("intent");
+    let nextState: QuizQuestionFormState;
+    if (intent !== "translate" && selectedImage) {
+      formData.set("intent", "prepare-save");
+      const preparedState = await action(previousState, formData);
+      formData.set("intent", typeof intent === "string" ? intent : "save");
+      if (preparedState.status !== "ready") {
+        nextState = preparedState;
+      } else {
+        try {
           setUploadingImage(true);
           formData.set("imageUploadId", await uploadImage(selectedImage));
           formData.delete("removeImage");
-        } else if (removeImage) {
+          nextState = await action(previousState, formData);
+        } catch (error) {
+          setImageError(
+            error instanceof Error ? error.message : "Question Image upload failed.",
+          );
+          return previousState;
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+    } else {
+      try {
+        if (intent !== "translate" && removeImage) {
           formData.set("removeImage", "true");
         }
+        nextState = await action(previousState, formData);
       } catch (error) {
         setImageError(
           error instanceof Error ? error.message : "Question Image upload failed.",
         );
         return previousState;
-      } finally {
-        setUploadingImage(false);
       }
     }
-    const nextState = await action(previousState, formData);
     if (
       nextState.status !== "translated" &&
       nextState.status !== "translation-failed"
     ) {
       return nextState;
     }
+    setTranslationReviewKey(nextState.translationReviewKey);
     setPromptNorwegian(nextState.values.promptNorwegian);
     setPromptEnglish(nextState.values.promptEnglish);
     setOptions((current) =>
@@ -172,6 +191,11 @@ export function QuestionForm({
 
   return (
     <form action={formAction} className="mt-8 space-y-7" noValidate>
+      <input
+        name="translationReviewKey"
+        type="hidden"
+        value={translationReviewKey}
+      />
       {invalidState ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
           Question was not saved. Check the highlighted fields and try again.
