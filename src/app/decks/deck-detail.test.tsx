@@ -20,6 +20,7 @@ describe("Flashcard Deck detail", () => {
 
     expect(screen.getByRole("heading", { name: "No cards yet" })).toBeTruthy();
     expect(screen.queryByText(/Deck Progress/)).toBeNull();
+    expect(screen.queryByText(/0 flashcards/)).toBeNull();
   });
 
   it("lists only the selected Deck's Flashcards with Deck-scoped actions", () => {
@@ -75,7 +76,9 @@ describe("Flashcard Deck detail", () => {
       />,
     );
 
-    expect(screen.getByText("Deck Progress: 50% Learned")).toBeTruthy();
+    expect(
+      screen.getByText("Deck Progress: 50% Learned · 2 flashcards"),
+    ).toBeTruthy();
     expect(screen.getByText("Recall streak 0/3")).toBeTruthy();
     expect(screen.getByText("Recall streak 3/3")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Study Deck" })).toBeTruthy();
@@ -98,7 +101,9 @@ describe("Flashcard Deck detail", () => {
       />,
     );
 
-    expect(screen.getByText("Deck Progress: 100% Learned")).toBeTruthy();
+    expect(
+      screen.getByText("Deck Progress: 100% Learned · 1 flashcard"),
+    ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Study Deck" }).getAttribute("href"))
       .toBe("/decks/deck-a/study");
   });

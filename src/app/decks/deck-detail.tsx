@@ -57,7 +57,8 @@ export function DeckDetail({
       {flashcards.length > 0 ? (
         <>
           <p className="mt-8 text-sm font-medium text-slate-600">
-            Deck Progress: {progress.percentage}% Learned
+            Deck Progress: {progress.percentage}% Learned · {flashcards.length}{" "}
+            {flashcards.length === 1 ? "flashcard" : "flashcards"}
           </p>
           <FlashcardList deckId={deck.id} flashcards={flashcards} />
         </>

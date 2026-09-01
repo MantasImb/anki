@@ -45,7 +45,8 @@ export function QuizDetail({
       ) : (
         <div className="mt-8 space-y-5">
           <p className="text-sm font-medium text-slate-600">
-            Quiz Progress: {progress.percentage}% Learned
+            Quiz Progress: {progress.percentage}% Learned · {questions.length}{" "}
+            {questions.length === 1 ? "question" : "questions"}
           </p>
           {questions.map((question) => (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={question.id}>

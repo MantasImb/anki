@@ -372,6 +372,33 @@ describe("Quiz Question form submission", () => {
     ]);
   });
 
+  it("returns an actionable failure when a Question cannot be saved", async () => {
+    const saveFailure = new Error("database unavailable");
+    const formData = new FormData();
+    formData.set("promptNorwegian", "Hva betyr høflig?");
+    formData.set("promptEnglish", "What does polite mean?");
+    formData.set("options.0.norwegian", "vennlig");
+    formData.set("options.0.english", "friendly");
+    formData.set("options.1.norwegian", "sint");
+    formData.set("options.1.english", "angry");
+    formData.set("correctOptions", "0");
+
+    await expect(
+      submitQuizQuestionForm(
+        {
+          create: async () => { throw saveFailure; },
+          update: async () => { throw saveFailure; },
+        },
+        "quiz-a",
+        undefined,
+        formData,
+      ),
+    ).resolves.toEqual({
+      status: "failed",
+      message: "Question could not be saved. Try again.",
+    });
+  });
+
   it("returns complete validation feedback without saving partial content", async () => {
     const questions = createQuizQuestionService(
       new MemoryQuizQuestionRepository(),

@@ -35,6 +35,7 @@ export type QuizQuestionFormState =
       translationReviewKey: string;
       values: QuizQuestionInput;
     }
+  | { status: "failed"; message: string }
   | { status: "ready" }
   | { status: "saved"; intent: QuizQuestionSaveIntent };
 
@@ -210,7 +211,10 @@ export async function submitQuizQuestionForm(
         values,
       };
     }
-    throw error;
+    return {
+      status: "failed",
+      message: "Question could not be saved. Try again.",
+    };
   }
 }
 

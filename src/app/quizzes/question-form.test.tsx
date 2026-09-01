@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { Component, type ReactNode } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,8 +9,26 @@ import { QuestionForm } from "./question-form";
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
+
+class NavigationBoundary extends Component<
+  { children: ReactNode },
+  { error?: Error }
+> {
+  state: { error?: Error } = {};
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    return this.state.error
+      ? <p>Navigation left the form.</p>
+      : this.props.children;
+  }
+}
 
 function questionWithImage(): QuizQuestion {
   return {
@@ -33,6 +52,89 @@ function questionWithImage(): QuizQuestion {
 }
 
 describe("Quiz Question form", () => {
+  it("lets successful save navigation leave the Question form", async () => {
+    const user = userEvent.setup();
+    const navigation = new Error("NEXT_REDIRECT");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(
+      <NavigationBoundary>
+        <QuestionForm action={async () => { throw navigation; }} />
+      </NavigationBoundary>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Save and add another" }),
+    );
+
+    expect(await screen.findByText("Navigation left the form.")).toBeTruthy();
+    expect(screen.queryByText("NEXT_REDIRECT")).toBeNull();
+  });
+
+  it("navigates after saving a Question with a newly uploaded image", async () => {
+    const user = userEvent.setup();
+    const navigation = new Error("NEXT_REDIRECT");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const action = vi.fn(async (_state, formData: FormData) => {
+      if (formData.get("intent") === "prepare-save") {
+        return { status: "ready" as const };
+      }
+      throw navigation;
+    });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        uploadId: "b4d89f5b-e0f8-41f2-86bb-87e1bb5f9c18",
+        uploadUrl: "https://bucket.example/upload",
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        uploadId: "b4d89f5b-e0f8-41f2-86bb-87e1bb5f9c18",
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+
+    render(
+      <NavigationBoundary>
+        <QuestionForm action={action} />
+      </NavigationBoundary>,
+    );
+    await user.upload(
+      screen.getByLabelText("Question Image"),
+      new File(["image"], "fjord.png", { type: "image/png" }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Save and add another" }),
+    );
+
+    expect(await screen.findByText("Navigation left the form.")).toBeTruthy();
+    expect(screen.queryByText("NEXT_REDIRECT")).toBeNull();
+  });
+
+  it("keeps Question content when saving fails", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuestionForm
+        action={async () => ({
+          status: "failed",
+          message: "Question could not be saved. Try again.",
+        })}
+      />,
+    );
+    await user.type(
+      screen.getByLabelText("Norwegian prompt"),
+      "Hva betyr høflig?",
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Save and add another" }),
+    );
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Question could not be saved. Try again.",
+    );
+    expect(screen.getByDisplayValue("Hva betyr høflig?")).toBeTruthy();
+  });
+
   it("allows more than one Answer Option to be marked correct", async () => {
     const user = userEvent.setup();
     const action = vi.fn(async () => ({ status: "idle" as const }));
@@ -270,6 +372,38 @@ describe("Quiz Question form", () => {
     expect((action.mock.calls[1][1] as FormData).get("imageUploadId")).toBe(
       "b4d89f5b-e0f8-41f2-86bb-87e1bb5f9c18",
     );
+  });
+
+  it("keeps Question content and reports a Question Image upload failure", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async (_state, formData: FormData) =>
+      formData.get("intent") === "prepare-save"
+        ? { status: "ready" as const }
+        : { status: "idle" as const }
+    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        message: "Question Image upload authorization failed.",
+      }), { status: 503 }),
+    ));
+    render(<QuestionForm action={action} />);
+    await user.type(
+      screen.getByLabelText("Norwegian prompt"),
+      "Hva ser du?",
+    );
+    await user.upload(
+      screen.getByLabelText("Question Image"),
+      new File(["image"], "fjord.png", { type: "image/png" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save Question" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Question Image upload authorization failed.",
+    );
+    expect(screen.getByDisplayValue("Hva ser du?")).toBeTruthy();
+    expect(screen.getByText(/fjord\.png/)).toBeTruthy();
+    expect(action).toHaveBeenCalledTimes(1);
   });
 
   it("does not upload a selected image when Question content is invalid", async () => {

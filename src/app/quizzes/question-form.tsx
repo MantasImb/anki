@@ -105,11 +105,10 @@ export function QuestionForm({
       if (preparedState.status !== "ready") {
         nextState = preparedState;
       } else {
+        let imageUploadId: string;
         try {
           setUploadingImage(true);
-          formData.set("imageUploadId", await uploadImage(selectedImage));
-          formData.delete("removeImage");
-          nextState = await action(previousState, formData);
+          imageUploadId = await uploadImage(selectedImage);
         } catch (error) {
           setImageError(
             error instanceof Error ? error.message : "Question Image upload failed.",
@@ -118,19 +117,15 @@ export function QuestionForm({
         } finally {
           setUploadingImage(false);
         }
+        formData.set("imageUploadId", imageUploadId);
+        formData.delete("removeImage");
+        nextState = await action(previousState, formData);
       }
     } else {
-      try {
-        if (intent !== "translate" && removeImage) {
-          formData.set("removeImage", "true");
-        }
-        nextState = await action(previousState, formData);
-      } catch (error) {
-        setImageError(
-          error instanceof Error ? error.message : "Question Image upload failed.",
-        );
-        return previousState;
+      if (intent !== "translate" && removeImage) {
+        formData.set("removeImage", "true");
       }
+      nextState = await action(previousState, formData);
     }
     if (
       nextState.status !== "translated" &&
@@ -199,6 +194,11 @@ export function QuestionForm({
       {invalidState ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
           Question was not saved. Check the highlighted fields and try again.
+        </div>
+      ) : null}
+      {state.status === "failed" ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
+          {state.message}
         </div>
       ) : null}
       {state.status === "translated" ? (
