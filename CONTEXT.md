@@ -153,6 +153,14 @@ The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of
 - A **Flashcard Deck** derives its progress and statistics only from its own **Flashcards** and **Study Results**.
 - No shared Topic, progress rollup, or statistical relationship connects a **Quiz** to a **Flashcard Deck**.
 - The **Learner** creates **Quiz Questions** and their **Answer Options**.
+- Pasted Quiz Question text contains one Norwegian prompt followed by its **Answer Options**, one per line, in authored order.
+- Pasting a prompt together with its **Answer Options** into the Norwegian question field automatically fills the prompt and separate Answer Option fields.
+- Pasted Quiz Question text is recognized when it contains at least three non-empty lines: the first is the Norwegian prompt and every remaining line is an **Answer Option**; blank lines are ignored.
+- Pasted **Answer Options** start with none marked correct; the **Learner** marks every correct option manually before saving.
+- When **Answer Options** already contain text, pasted Answer Options are added after them without replacing existing text, translations, order, or correct-answer selections; the **Learner** removes unwanted options manually.
+- The **Learner** can undo automatic filling when pasted text was incorrectly interpreted as a prompt with **Answer Options**.
+- After automatic filling, a toast confirms that answers were auto-filled and offers Undo; editing the question or Answer Options, requesting translation, or saving dismisses the toast and ends that Undo opportunity.
+- Undoing automatic filling leaves the Norwegian question field as an ordinary paste would, respecting the insertion point or selected text, and restores the previous **Answer Options**, correct-answer selections, and English text.
 - A **Quiz Question** has one Norwegian prompt and multiple text-only **Answer Options**, of which one or more may be correct.
 - A **Quiz Question** requires at least two **Answer Options** and has no fixed maximum number of options.
 - A **Quiz Question** is either a **Single-Choice Question** or a **Multiple-Choice Question**.
@@ -229,6 +237,9 @@ The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of
 > **Developer:** “Does a **Quiz** study together with a similarly named **Flashcard Deck**?”
 > **Domain expert:** “No. The Learner selects one collection first. Each format has its own items, progress, results, and study session.”
 
+> **Developer:** “What happens if a pasted question is split into **Answer Options** incorrectly?”
+> **Domain expert:** “Undo makes it an ordinary paste into the question field and restores the answers I already had. Pasted answers otherwise go after existing answers, and I remove any I do not want.”
+
 ## Flagged ambiguities
 
 - “Add flashcard” names the overall entry workflow; LLM-generated content remains a **Card Draft** until the learner adds the remaining generated collection.
@@ -239,4 +250,4 @@ The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of
 - “Topic” may be used informally in conversation, but it does not name a domain object or UI collection type.
 - Similar names such as “Taxi Quiz” and “Taxi Flashcards” do not create a relationship between the collections.
 - “Learned” means reduced study frequency rather than removal from study.
-- V2 adds **Quiz Questions** one at a time; bulk question import is deferred.
+- V2 adds **Quiz Questions** one at a time; pasting a prompt with Answer Options fills one question form, while bulk question import is deferred.

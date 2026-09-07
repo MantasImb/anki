@@ -2,7 +2,7 @@
 title: Preserve correct-option selection when translating Quiz options
 labels:
   - bug
-status: open
+status: completed
 ---
 
 # Preserve correct-option selection when translating Quiz options
@@ -29,7 +29,13 @@ The selected correct-option boxes are cleared or reset after translation.
 
 ## Acceptance Criteria
 
-- [ ] Translate updates translated content without changing which Answer Options are marked correct.
-- [ ] The selection is preserved for both single-answer and multiple-answer Questions.
-- [ ] Existing translation behavior continues to work.
+- [x] Translate updates translated content without changing which Answer Options are marked correct.
+- [x] The selection is preserved for both single-answer and multiple-answer Questions.
+- [x] Existing translation behavior continues to work.
 
+
+## Resolution
+
+The shared form now prevents the native reset that React performs after resolved form actions. Translation previews and failures retain the editable draft, including correctness selections, until successful navigation. The paste-assistance integration tests cover multiple selections and manual translation fallback; the isolated browser check also verifies a single selected answer through translation and a failed save.
+
+See [implementation verification](../../plans/populate-quiz-answer-options-from-pasted-question.md#verification-results).

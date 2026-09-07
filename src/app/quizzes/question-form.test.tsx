@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
 import { Component, type ReactNode } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { QuizQuestion } from "@/application/quiz-questions";
 import { QuestionForm } from "./question-form";
+import { translateQuizQuestionForm } from "@/interface/manage-quiz-question";
+import { createQuestionTranslationService } from "@/application/question-translation";
 
 afterEach(() => {
   cleanup();
@@ -509,4 +511,232 @@ describe("Quiz Question form", () => {
     expect((action.mock.calls[0][1] as FormData).get("removeImage")).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
   });
+});
+
+describe("Question paste assistance", () => {
+  const pasted = "Rett til å tilby drosjetjenester…\nEnerett\nReisebevis\nRutestyring\nFelleskapstillatelse";
+
+  it("fills a fresh form and offers ordinary paste through Undo", async () => {
+    const user = userEvent.setup();
+    const action = vi.fn(async () => ({ status: "idle" as const }));
+    render(<QuestionForm action={action} />);
+    const prompt = screen.getByLabelText<HTMLTextAreaElement>("Norwegian prompt");
+    await user.click(prompt);
+    await user.paste(pasted);
+    expect(prompt.value).toBe("Rett til å tilby drosjetjenester…");
+    expect(screen.getAllByLabelText(/Norwegian option/).map((input) => (input as HTMLInputElement).value)).toEqual(["Enerett", "Reisebevis", "Rutestyring", "Felleskapstillatelse"]);
+    expect(screen.getAllByRole("checkbox").every((input) => !(input as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByText("Answers were auto-filled")).toBeTruthy();
+    expect(document.activeElement).toBe(prompt);
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    expect(prompt.value).toBe(pasted);
+    expect(screen.getAllByLabelText(/Norwegian option/)).toHaveLength(2);
+    expect((screen.getByLabelText("Correct option 1") as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(document.activeElement).toBe(prompt);
+    expect(action).not.toHaveBeenCalled();
+  });
+});
+
+it.each([[4, 4], [4, 7]])("appends in edit mode and undoes an insertion or selection (%i, %i)", async (start, end) => {
+  const user = userEvent.setup();
+  render(<QuestionForm action={async () => ({ status: "idle" })} question={questionWithImage()} imageUrl="/image.gif" />);
+  const prompt = screen.getByLabelText<HTMLTextAreaElement>("Norwegian prompt");
+  await user.click(prompt);
+  prompt.setSelectionRange(start, end);
+  await user.paste(" Nytt? \r\n ja \r\n nei ");
+  expect(prompt.value).toBe("Hva ser du?".slice(0, start) + "Nytt?" + "Hva ser du?".slice(end));
+  expect(screen.getAllByLabelText(/Norwegian option/).map((input) => (input as HTMLInputElement).value)).toEqual(["vann", "ild", "ja", "nei"]);
+  expect(screen.getByLabelText<HTMLInputElement>("English option 1").value).toBe("water");
+  expect(screen.getByLabelText<HTMLInputElement>("Correct option 1").checked).toBe(true);
+  expect(screen.getByLabelText<HTMLTextAreaElement>("English prompt translation").value).toBe("");
+  expect(screen.getByAltText("Current Question Image")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Undo" }));
+  expect(prompt.value).toBe("Hva ser du?".slice(0, start) + " Nytt? \n ja \n nei " + "Hva ser du?".slice(end));
+  expect(screen.getByLabelText<HTMLTextAreaElement>("English prompt translation").value).toBe("What do you see?");
+  expect(screen.getAllByLabelText(/Norwegian option/)).toHaveLength(2);
+  expect(screen.getByAltText("Current Question Image")).toBeTruthy();
+});
+
+it("keeps remaining pasted answers unchecked when removing an unwanted answer", async () => {
+  const user = userEvent.setup();
+  render(<QuestionForm action={async () => ({ status: "idle" })} />);
+  await user.click(screen.getByLabelText("Norwegian prompt"));
+  await user.paste("Hva?\nja\nnei\nkanskje");
+  await user.click(screen.getAllByRole("button", { name: "Remove" })[2]);
+  expect(screen.getAllByRole("checkbox").every((input) => !(input as HTMLInputElement).checked)).toBe(true);
+});
+
+it.each([
+  "Norwegian prompt", "English prompt translation", "Norwegian option 1", "English option 1", "Correct option 1",
+  "Add option", "Remove", "Move down",
+])("expires paste Undo after editing %s", async (control) => {
+  const user = userEvent.setup();
+  render(<QuestionForm action={async () => ({ status: "idle" })} />);
+  await user.click(screen.getByLabelText("Norwegian prompt"));
+  await user.paste("Hva?\nja\nnei\nkanskje");
+  if (["Add option", "Remove", "Move down"].includes(control)) {
+    await user.click(screen.getAllByRole("button", { name: control })[0]);
+  } else if (control === "Correct option 1") {
+    await user.click(screen.getByLabelText(control));
+  } else {
+    await user.type(screen.getByLabelText(control), "!");
+  }
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+});
+
+it.each(["Translate to English", "Save Question", "Save and add another"])("expires Undo before %s and falls back to ordinary paste while pending", async (button) => {
+  const user = userEvent.setup();
+  let finish!: (value: { status: "failed"; message: string }) => void;
+  const action = vi.fn(() => new Promise<{ status: "failed"; message: string }>((resolve) => { finish = resolve; }));
+  render(<QuestionForm action={action} />);
+  const prompt = screen.getByLabelText<HTMLTextAreaElement>("Norwegian prompt");
+  await user.click(prompt);
+  await user.paste("Hva?\nja\nnei");
+  await user.click(screen.getByRole("button", { name: button }));
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  await user.click(prompt);
+  prompt.setSelectionRange(0, prompt.value.length);
+  await user.paste("Hvem?\ndeg\nmeg");
+  expect(prompt.value).toBe("Hvem?\ndeg\nmeg");
+  expect(screen.getByLabelText<HTMLInputElement>("Norwegian option 1").value).toBe("ja");
+  finish({ status: "failed", message: "Try again" });
+  await screen.findByText("Try again");
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  expect(prompt.value).toBe("Hvem?\ndeg\nmeg");
+});
+
+it.each(["Norwegian option 1", "English option 1"])("preserves mixed blank rows when %s contains text", async (label) => {
+  const user = userEvent.setup();
+  render(<QuestionForm action={async () => ({ status: "idle" })} />);
+  await user.type(screen.getByLabelText(label), "existing");
+  await user.click(screen.getByLabelText("Norwegian prompt"));
+  await user.paste("Hva?\nja\nnei");
+  expect(screen.getAllByLabelText(/Norwegian option/)).toHaveLength(4);
+  expect(screen.getByLabelText<HTMLInputElement>(label).value).toBe("existing");
+  expect(screen.getByLabelText<HTMLInputElement>("Norwegian option 2").value).toBe("");
+  expect(screen.getByLabelText<HTMLInputElement>("Norwegian option 3").value).toBe("ja");
+});
+
+it("offers only the latest paste Undo and keeps it when focus or selection changes", async () => {
+  const user = userEvent.setup();
+  render(<QuestionForm action={async () => ({ status: "idle" })} />);
+  const prompt = screen.getByLabelText<HTMLTextAreaElement>("Norwegian prompt");
+  await user.click(prompt);
+  await user.paste("Hva?\nja\nnei");
+  prompt.setSelectionRange(0, prompt.value.length);
+  await user.paste("Hvem?\ndeg\nmeg");
+  expect(screen.getAllByLabelText(/Norwegian option/)).toHaveLength(4);
+  await user.tab();
+  await user.click(prompt);
+  prompt.setSelectionRange(1, 2);
+  await user.tab({ shift: true });
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Undo" }));
+  await user.keyboard("{Enter}");
+  expect(prompt.value).toBe("Hvem?\ndeg\nmeg");
+  expect(screen.getAllByLabelText(/Norwegian option/).map((input) => (input as HTMLInputElement).value)).toEqual(["ja", "nei"]);
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+});
+
+it("keeps unmatched paste and typed newlines ordinary, expiring a previous Undo", async () => {
+  const user = userEvent.setup();
+  render(<QuestionForm action={async () => ({ status: "idle" })} />);
+  const prompt = screen.getByLabelText<HTMLTextAreaElement>("Norwegian prompt");
+  await user.click(prompt);
+  await user.paste("Hva?\nja");
+  await user.keyboard("{Enter}nei");
+  expect(prompt.value).toBe("Hva?\nja\nnei");
+  expect(screen.getAllByLabelText(/Norwegian option/)).toHaveLength(2);
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  await user.paste("Hvem?\ndeg\nmeg");
+  await user.paste("!");
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+});
+
+it.each([false, true])("submits appended options with reviewed English and preserved identities (translation failure: %s)", async (failTranslation) => {
+  const user = userEvent.setup();
+  const existing = questionWithImage();
+  const translate = vi.fn(async () => {
+    if (failTranslation) throw new Error("Offline");
+    return ["New?", "yes", "no"];
+  });
+  const submissions: FormData[] = [];
+  const action = vi.fn(async (_state, data: FormData) => {
+    if (data.get("intent") === "translate") {
+      expect(data.getAll("correctOptions")).toEqual(["0", "2"]);
+      return translateQuizQuestionForm(createQuestionTranslationService({ translate }), existing, data);
+    }
+    submissions.push(data);
+    return { status: "failed" as const, message: "Save failed; try again." };
+  });
+  render(<QuestionForm action={action} question={existing} />);
+  const prompt = screen.getByLabelText<HTMLTextAreaElement>("Norwegian prompt");
+  await user.click(prompt);
+  prompt.select();
+  await user.paste("Nytt?\nja\nnei");
+  expect(action).not.toHaveBeenCalled();
+  await user.click(screen.getByLabelText("Correct option 3"));
+  expect(screen.getByLabelText<HTMLInputElement>("Correct option 3").checked).toBe(true);
+  await user.click(screen.getByRole("button", { name: "Translate to English" }));
+  await screen.findByText(failTranslation
+    ? "Automatic translation is unavailable. Enter or review the English text manually."
+    : "English is ready to review. Edit it as needed before saving.");
+  expect(translate).toHaveBeenCalledWith(["Nytt?", "ja", "nei"]);
+  expect(screen.getByLabelText<HTMLInputElement>("Correct option 3").checked).toBe(true);
+  if (failTranslation) {
+    await user.type(screen.getByLabelText("English prompt translation"), "New?");
+    await user.type(screen.getByLabelText("English option 3"), "yes");
+    await user.type(screen.getByLabelText("English option 4"), "no");
+  }
+  await user.click(screen.getByRole("button", { name: "Save Question" }));
+  await screen.findByText("Save failed; try again.");
+  const data = submissions[0];
+  expect(data.get("promptNorwegian")).toBe("Nytt?");
+  expect(data.get("promptEnglish")).toBe("New?");
+  expect(data.get("options.0.id")).toBe("option-a");
+  expect(data.get("options.1.id")).toBe("option-b");
+  expect(data.get("options.2.id")).toBeNull();
+  expect(data.getAll("correctOptions")).toEqual(["0", "2"]);
+  expect([0, 1, 2, 3].map((i) => data.get(`options.${i}.english`))).toEqual(["water", "fire", "yes", "no"]);
+  expect(data.get("translationReviewKey")).toBeTruthy();
+  expect(screen.getByLabelText<HTMLInputElement>("English option 4").value).toBe("no");
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+
+  // Undoing another paste retains the ordinary pasted Norwegian, which needs review.
+  await user.click(prompt);
+  prompt.select();
+  await user.paste("Annet?\nen\nto");
+  await user.click(screen.getByRole("button", { name: "Undo" }));
+  await user.click(screen.getByRole("button", { name: "Save Question" }));
+  await waitFor(() => expect(submissions).toHaveLength(2));
+  expect(submissions[1].get("translationReviewKey")).toBe("");
+  expect(submissions[1].get("promptNorwegian")).toBe("Annet?\nen\nto");
+});
+
+
+it("leaves unavailable clipboard data and pastes outside the Norwegian prompt alone", async () => {
+  const user = userEvent.setup();
+  render(<QuestionForm action={async () => ({ status: "idle" })} />);
+  expect(fireEvent.paste(screen.getByLabelText("Norwegian prompt"))).toBe(true);
+  await user.click(screen.getByLabelText("English prompt translation"));
+  await user.paste("Question?\nyes\nno");
+  expect(screen.getByLabelText<HTMLTextAreaElement>("English prompt translation").value).toBe("Question?\nyes\nno");
+  expect(screen.getAllByLabelText(/Norwegian option/)).toHaveLength(2);
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+});
+
+it("keeps prompt English when the extracted prompt is unchanged and retains a selected image through Undo", async () => {
+  const user = userEvent.setup();
+  render(<QuestionForm action={async () => ({ status: "idle" })} />);
+  const prompt = screen.getByLabelText<HTMLTextAreaElement>("Norwegian prompt");
+  await user.type(prompt, "Hva?");
+  await user.type(screen.getByLabelText("English prompt translation"), "What?");
+  const file = new File(["image"], "fjord.png", { type: "image/png" });
+  await user.upload(screen.getByLabelText("Question Image"), file);
+  await user.click(prompt);
+  prompt.select();
+  await user.paste("Hva?\nja\nnei");
+  expect(screen.getByLabelText<HTMLTextAreaElement>("English prompt translation").value).toBe("What?");
+  await user.click(screen.getByRole("button", { name: "Undo" }));
+  expect(screen.getByLabelText<HTMLInputElement>("Question Image").files?.[0]).toBe(file);
 });

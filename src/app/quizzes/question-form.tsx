@@ -1,6 +1,15 @@
 "use client";
 
-import { useRef, useState, useActionState } from "react";
+import {
+  useRef,
+  useState,
+  useActionState,
+  useLayoutEffect,
+  useEffect,
+  type ClipboardEventHandler,
+  type Ref,
+} from "react";
+import { interpretQuestionPaste } from "@/interface/interpret-question-paste";
 import type { QuizQuestion } from "@/application/quiz-questions";
 import {
   QUESTION_IMAGE_CONTENT_TYPES,
@@ -54,6 +63,76 @@ export function QuestionForm({
   const [imageError, setImageError] = useState<string>();
   const [uploadingImage, setUploadingImage] = useState(false);
   const [translationReviewKey, setTranslationReviewKey] = useState("");
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  const caretToRestore = useRef<number | undefined>(undefined);
+  const [pasteUndo, setPasteUndo] = useState<{
+    prompt: string;
+    english: string;
+    options: EditableOption[];
+    caret: number;
+  }>();
+
+  useEffect(() => {
+    // React resets resolved form actions during commit, when synthetic events are
+    // suppressed. Keep this draft through translation and failures until navigation.
+    const form = formRef.current;
+    const preventReset = (event: Event) => event.preventDefault();
+    form?.addEventListener("reset", preventReset);
+    return () => form?.removeEventListener("reset", preventReset);
+  }, []);
+
+  useLayoutEffect(() => {
+    const caret = caretToRestore.current;
+    if (caret === undefined) return;
+    caretToRestore.current = undefined;
+    promptRef.current?.focus();
+    promptRef.current?.setSelectionRange(caret, caret);
+  });
+
+  const pasteQuestion: ClipboardEventHandler<HTMLTextAreaElement> = (event) => {
+    if (pending || uploadingImage) return;
+    const text = event.clipboardData?.getData("text/plain") ?? "";
+    const interpreted = interpretQuestionPaste(text);
+    if (!interpreted) return;
+    const { selectionStart, selectionEnd, value } = event.currentTarget;
+    const before = value.slice(0, selectionStart);
+    const after = value.slice(selectionEnd);
+    const ordinaryText = text.replace(/\r\n|\r/g, "\n");
+    event.preventDefault();
+    setPasteUndo({
+      prompt: before + ordinaryText + after,
+      english: promptEnglish,
+      options,
+      caret: before.length + ordinaryText.length,
+    });
+    const nextPrompt = before + interpreted.prompt + after;
+    setPromptNorwegian(nextPrompt);
+    if (nextPrompt !== value) setPromptEnglish("");
+    setTranslationReviewKey("");
+    caretToRestore.current = before.length + interpreted.prompt.length;
+    const addedOptions = interpreted.answers.map((norwegian) => ({
+      key: `pasted-${nextKey.current++}`,
+      norwegian,
+      english: "",
+      isCorrect: false,
+    }));
+    const hasAnswerText = options.some(
+      (option) => option.norwegian.trim() || option.english.trim(),
+    );
+    setOptions(hasAnswerText ? [...options, ...addedOptions] : addedOptions);
+  };
+
+  function undoPaste() {
+    if (!pasteUndo) return;
+    setPromptNorwegian(pasteUndo.prompt);
+    setPromptEnglish(pasteUndo.english);
+    setOptions(pasteUndo.options);
+    setTranslationReviewKey("");
+    caretToRestore.current = pasteUndo.caret;
+    setPasteUndo(undefined);
+  }
 
   async function responseJson(response: Response) {
     const body = await response.json() as { message?: string; uploadId?: string; uploadUrl?: string };
@@ -154,6 +233,7 @@ export function QuestionForm({
   const invalidState = state.status === "invalid" ? state : undefined;
 
   function changeOption(index: number, patch: Partial<EditableOption>) {
+    setPasteUndo(undefined);
     setOptions((current) =>
       current.map((option, optionIndex) =>
         optionIndex === index ? { ...option, ...patch } : option,
@@ -162,6 +242,7 @@ export function QuestionForm({
   }
 
   function moveOption(index: number, direction: -1 | 1) {
+    setPasteUndo(undefined);
     setOptions((current) => {
       const target = index + direction;
       if (target < 0 || target >= current.length) return current;
@@ -172,11 +253,14 @@ export function QuestionForm({
   }
 
   function removeOption(index: number) {
+    setPasteUndo(undefined);
     setOptions((current) => {
       const remaining = current.filter(
         (_, optionIndex) => optionIndex !== index,
       );
-      if (remaining.some(({ isCorrect }) => isCorrect)) return remaining;
+      if (!current[index]?.isCorrect || remaining.some(({ isCorrect }) => isCorrect)) {
+        return remaining;
+      }
       return remaining.map((option, optionIndex) => ({
         ...option,
         isCorrect: optionIndex === 0,
@@ -185,7 +269,19 @@ export function QuestionForm({
   }
 
   return (
-    <form action={formAction} className="mt-8 space-y-7" noValidate>
+    <form
+      action={formAction}
+      onSubmit={() => setPasteUndo(undefined)}
+      ref={formRef}
+      className="mt-8 space-y-7"
+      noValidate
+    >
+      {pasteUndo ? (
+        <div className="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-sky-200 bg-white p-3 text-sm text-slate-950 shadow-lg" role="status">
+          <span>Answers were auto-filled</span>
+          <button className="min-h-11 shrink-0 rounded-lg px-4 font-semibold text-sky-800 focus-visible:outline-2 focus-visible:outline-sky-700" onClick={undoPaste} type="button">Undo</button>
+        </div>
+      ) : null}
       <input
         name="translationReviewKey"
         type="hidden"
@@ -219,7 +315,12 @@ export function QuestionForm({
         id="promptNorwegian"
         label="Norwegian prompt"
         name="promptNorwegian"
-        onChange={setPromptNorwegian}
+        onChange={(value) => {
+          setPasteUndo(undefined);
+          setPromptNorwegian(value);
+        }}
+        onPaste={pasteQuestion}
+        inputRef={promptRef}
         value={promptNorwegian}
       />
 
@@ -304,7 +405,10 @@ export function QuestionForm({
         id="promptEnglish"
         label="English prompt translation"
         name="promptEnglish"
-        onChange={setPromptEnglish}
+        onChange={(value) => {
+          setPasteUndo(undefined);
+          setPromptEnglish(value);
+        }}
         value={promptEnglish}
       />
 
@@ -386,6 +490,7 @@ export function QuestionForm({
       <button
         className="min-h-12 rounded-xl border border-sky-200 bg-sky-50 px-5 py-3 font-semibold text-sky-800"
         onClick={() => {
+          setPasteUndo(undefined);
           const key = nextKey.current++;
           setOptions((current) => [...current, { key: `added-${key}`, norwegian: "", english: "", isCorrect: false }]);
         }}
@@ -423,6 +528,8 @@ function TextArea({
   label,
   name,
   onChange,
+  onPaste,
+  inputRef,
   value,
 }: {
   error?: string;
@@ -430,6 +537,8 @@ function TextArea({
   label: string;
   name: string;
   onChange(value: string): void;
+  onPaste?: ClipboardEventHandler<HTMLTextAreaElement>;
+  inputRef?: Ref<HTMLTextAreaElement>;
   value: string;
 }) {
   return (
@@ -441,6 +550,8 @@ function TextArea({
         id={id}
         name={name}
         onChange={(event) => onChange(event.target.value)}
+        onPaste={onPaste}
+        ref={inputRef}
         rows={4}
         value={value}
       />
