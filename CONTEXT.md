@@ -82,7 +82,7 @@ The single optional JPEG, PNG, WebP, or GIF shown as part of a Quiz Question pro
 An append-only record of a Quiz Question outcome, whether Translation Help was used, and when the answer occurred.
 
 **Answer Feedback**:
-The post-answer view that identifies correct Answer Options and any incorrect options selected by the Learner.
+The post-answer view that shows the Question Translation and identifies correct Answer Options and any incorrect options selected by the Learner.
 
 **Learned Question**:
 A Quiz Question whose Recall Streak has reached three and that therefore appears less often while remaining eligible for study.
@@ -188,6 +188,8 @@ The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of
 - Choosing an **Answer Option** produces a correct or incorrect **Quiz Result**.
 - Submitting an answer locks its selected **Answer Options** and shows **Answer Feedback**.
 - **Answer Feedback** highlights every correct **Answer Option** and every incorrect **Answer Option** selected by the Learner.
+- **Answer Feedback** automatically shows the retained **Question Translation** for the prompt and every **Answer Option**, regardless of correctness or whether **Translation Help** was requested.
+- Seeing the **Question Translation** in **Answer Feedback** does not count as using **Translation Help** and does not change the **Quiz Result** or **Recall Streak**.
 - The current question remains visible with its **Answer Feedback** until the Learner chooses Next Question.
 - When **Translation Help** is requested, English replaces the primary text of the Quiz Question prompt and every **Answer Option**.
 - While **Translation Help** is visible, each English text has its original Norwegian text displayed beneath it at lower visual emphasis.
@@ -215,7 +217,7 @@ The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of
 - Top-level navigation exposes separate **Flashcard Decks** and **Quizzes** destinations.
 - A collection detail view shows its own progress, item list, Study action, and Add action.
 - During study, the Learner can see the active collection's **Deck Progress** or **Quiz Progress**, using the same collection-wide measure as its detail view.
-- Study progress appears as a small, visually subdued “25% Learned” label above the current Flashcard or Quiz Question and scrolls with the study content.
+- Study progress appears as a small, visually subdued “25% Learned” label directly below the collection name, outside the study card and scrolls with the study content.
 - During study, **Deck Progress** and **Quiz Progress** update immediately after a **Study Result** or **Quiz Result** is successfully recorded, including while **Answer Feedback** is visible; an unsaved result does not change the displayed progress.
 - **Quiz Progress** is the number of **Learned Questions** divided by the total number of **Quiz Questions** in that Quiz.
 - A Quiz is fully learned only when its **Quiz Progress** reaches 100 percent.

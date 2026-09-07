@@ -6,7 +6,7 @@ As the Learner, I can see how much of a Flashcard Deck or Quiz is Learned in its
 
 ## Solution
 
-Show a small, muted label such as “25% Learned” immediately above the current Flashcard or Quiz Question. Use the same collection-wide percentage and whole-number rounding as the collection detail view. The label scrolls with the study content and remains secondary to the prompt and answer controls.
+Show a small, muted label such as “25% Learned” directly below the collection name, outside the study card. Use the same collection-wide percentage and whole-number rounding as the collection detail view. The label scrolls with the study content and remains secondary to the prompt and answer controls.
 
 Update the label as soon as a Study Result or Quiz Result is successfully recorded. Quiz Progress updates while Answer Feedback is visible, before the Learner chooses Next Question. Deck Progress updates with the existing automatic transition to the next Flashcard. Pending or failed saves leave the displayed percentage unchanged.
 
@@ -18,7 +18,7 @@ Update the label as soon as a Study Result or Quiz Result is successfully record
 4. As the Learner, I want progress to include every active item in the selected collection, so that it describes the whole collection even when some items have not appeared in this session.
 5. As the Learner, I want other Decks and Quizzes excluded from this percentage, so that I see progress for the collection I am studying.
 6. As the Learner, I want the initial percentage visible before answering, so that I know my starting progress.
-7. As the Learner, I want a compact, muted percentage above the prompt, so that I can find it without it competing with the study task.
+7. As the Learner, I want a compact, muted percentage directly below the collection name, outside the study card, so that I can find it without it competing with the study task.
 8. As the Learner, I want the percentage to scroll with the content, so that it does not cover a long question, image, translation, or answer control.
 9. As the Learner, I want a third consecutive correct result to update the percentage immediately after saving, so that becoming Learned is reflected promptly.
 10. As the Learner, I want an incorrect result on a Learned item to reduce progress after saving, so that the percentage reflects my current Recall Streaks.
@@ -42,7 +42,7 @@ Update the label as soon as a Study Result or Quiz Result is successfully record
 - **Shared learning policy:** reuse the existing progress calculator. Learned means Recall Streak exactly three; percentage is Learned items divided by all active collection items, multiplied by 100 and rounded to the nearest whole number. Preserve current collection-detail rounding even where a large collection's rounded display reaches 100 before every item is Learned.
 - Both sessions already receive the selected collection's study items and their Recall Streaks. Compute progress across that full collection, including Learned items, items not yet shown, and items temporarily held back by the Retry Gap. Do not compute progress from the current prompt or eligible scheduling subset.
 - Existing successful save responses already contain the updated Recall Streak. Treat the recorded response as authoritative rather than predicting the streak from the chosen answer or self-assessment. No extra progress request, endpoint, database field, migration, or provider integration is required.
-- Use the same visible format, “25% Learned”, in both study views. Place it immediately above the current card or question with small, readable, muted text and normal document flow. Preserve readable contrast and existing keyboard focus. No progress bar, sticky positioning, overlay, animation, or new interaction is required.
+- Use the same visible format, “25% Learned”, in both study views. Place it directly below the collection name, outside the study card with small, readable, muted text and normal document flow. Preserve readable contrast and existing keyboard focus. No progress bar, sticky positioning, overlay, animation, or new interaction is required.
 - Keep progress visible through prompt, revealed answer, translation, pending submission, error, and Quiz Answer Feedback states when a study item is present. Only a successfully recorded result changes its value.
 - Preserve Quiz Answer Option order, selected answers, translation state, current prompt, image, and feedback when progress changes. Updating progress must not reshuffle options or advance the question.
 - Retain the existing Flashcard automatic advancement, Quiz explicit advancement, save error/retry behavior, attempt idempotency, grading, Recall Streak rules, and collection scoping. Existing empty collection views remain authoritative and omit the percentage.
@@ -60,7 +60,7 @@ Update the label as soon as a Study Result or Quiz Result is successfully record
 - For Flashcard study, assert the updated percentage after the saved assessment and automatic advancement. Revealing the back alone must not change it.
 - Use deferred and rejected fake save responses to verify that pending and failed saves preserve progress. Then verify a successful retry reflects the returned streak once. Answer selection and requesting Translation Help alone must not change Quiz Progress; a saved translation-assisted incorrect result must follow the returned streak.
 - Retain or extend existing empty-state coverage to confirm empty collections omit the percentage. Reuse existing progress-policy and persistence tests; new database or provider tests are unnecessary unless implementation changes those boundaries.
-- Perform a focused phone and desktop visual check with short and long study content. Verify readable, subdued placement above the prompt, ordinary scrolling, and no overlap with images, translations, feedback, or answer controls. Use local fixtures or an isolated test environment.
+- Perform a focused phone and desktop visual check with short and long study content. Verify readable, subdued placement directly below the collection name, outside the study card, ordinary scrolling, and no overlap with images, translations, feedback, or answer controls. Use local fixtures or an isolated test environment.
 - Complete the repository's standard lint, test, and build checks during implementation. Normal verification must not require live translation, image storage, or production database access.
 
 ## Out of Scope
@@ -73,7 +73,7 @@ Update the label as soon as a Study Result or Quiz Result is successfully record
 
 ## Further Notes
 
-- **Conversation facts:** the Learner requested the existing learned percentage in both study formats, explicitly chose immediate updates after saved answers, and accepted a subtle label above the study content that scrolls normally. The Learner confirmed the module and testing scope.
+- **Conversation facts:** the Learner requested the existing learned percentage in both study formats, explicitly chose immediate updates after saved answers, and accepted a subtle label directly below the collection name, outside the study card that scrolls normally. The Learner confirmed the module and testing scope.
 - **Repository facts:** both detail views already use shared learning-progress policy. Flashcard study applies the returned streak when saving and advancing; Quiz study currently stores feedback at save time and applies the streak when advancing. The Quiz timing therefore needs particular attention to meet the immediate-update requirement without disturbing feedback or option order.
 - **Explicit assumption — other sessions:** the initial collection snapshot and results saved in the current session determine the visible percentage. Existing page loading retrieves persisted state on a later visit; this feature adds no polling or cross-device synchronization.
 - This is a small presentation and session-state change. The domain glossary already records the agreed behavior; no new ADR is needed for this reversible UI decision.

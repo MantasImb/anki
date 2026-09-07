@@ -12,7 +12,7 @@ Durable decisions that apply across both phases:
 
 - **Routes and collection boundaries:** extend the existing `/decks/{deckId}/study` and `/quizzes/{quizId}/study` experiences. A study session targets exactly one Flashcard Deck or Quiz. Use every active item in that selected collection, including items not yet shown and items temporarily in the Retry Gap.
 - **Progress policy:** reuse the existing collection-detail calculation. An item is Learned at Recall Streak exactly three. Display Learned items divided by all active collection items, multiplied by 100 and rounded to the nearest whole number. Preserve existing rounding, including its behavior near 100% for large collections.
-- **Presentation:** show a small, readable, muted label such as “25% Learned” immediately above the card or question. Keep it in normal document flow so it scrolls with the content. Preserve keyboard focus and readable contrast. Empty collections retain their existing empty states without a percentage.
+- **Presentation:** show a small, readable, muted label such as “25% Learned” directly below the collection name, outside the study card. Keep it in normal document flow so it scrolls with the content. Preserve keyboard focus and readable contrast. Empty collections retain their existing empty states without a percentage.
 - **Recorded results:** use the updated Recall Streak returned by the existing successful save operation. Pending or failed saves leave progress unchanged; do not predict a result from the Learner's selection. A successful retry reflects the recorded result once.
 - **Study transitions:** Flashcard study continues to save and advance automatically. Quiz study updates progress alongside Answer Feedback and waits for Next Question before advancing or updating scheduling. Progress changes must preserve the displayed question, answer order, selections, translation, image, and feedback.
 - **Persistence and schema:** retain the existing Flashcard, Quiz Question, Study Result, and Quiz Result models, atomic recording, and attempt idempotency. No migration, new persisted percentage, or additional progress endpoint is needed.
@@ -35,14 +35,14 @@ Durable decisions that apply across both phases:
 
 ### What to build
 
-Complete the path from opening a Deck's study view through revealing, assessing, saving, and continuing with the next Flashcard. Show full Deck Progress above the card from the initial collection data, then refresh it from confirmed Recall Streaks during the existing automatic advancement. Preserve the current percentage through pending saves and recoverable errors.
+Complete the path from opening a Deck's study view through revealing, assessing, saving, and continuing with the next Flashcard. Show full Deck Progress directly below the collection name, outside the study card from the initial collection data, then refresh it from confirmed Recall Streaks during the existing automatic advancement. Preserve the current percentage through pending saves and recoverable errors.
 
 This slice is demoable with a partially Learned Deck: reveal a card at Recall Streak two, save a correct assessment, and see the increased percentage with the next card. An incorrect assessment on a Learned Flashcard reduces the percentage after saving.
 
 ### Acceptance criteria
 
 - [x] Opening a non-empty Deck's study view immediately displays the same whole-number progress as its detail view, calculated across the complete selected Deck rather than the current or eligible cards.
-- [x] A small, muted “25% Learned” label appears above the current card and remains visible through front, revealed back, pending save, and error states, using normal page scrolling.
+- [x] A small, muted “25% Learned” label appears directly below the collection name, outside the study card and remains visible through front, revealed back, pending save, and error states, using normal page scrolling.
 - [x] A saved transition from Recall Streak two to three increases progress; three to zero decreases it. Results that leave the card below three, or already at three, preserve the correct percentage.
 - [x] Successful assessment retains existing automatic advancement and displays updated progress with the next card. Revealing the back alone does not affect progress.
 - [x] A pending or rejected save leaves progress unchanged and preserves the current card for recovery. A successful retry uses the returned streak once and continues study normally.
@@ -66,7 +66,7 @@ This slice is demoable with a question at Recall Streak two: submit a correct an
 ### Acceptance criteria
 
 - [x] Opening a non-empty Quiz's study view displays the same rounded percentage as its detail view, including every active question in the selected Quiz, even those not yet shown or temporarily in the Retry Gap.
-- [x] The label matches Flashcard study in wording and visual emphasis, appears above the question, and stays visible through untranslated and translated prompts, pending submission, errors, and Answer Feedback.
+- [x] The label matches Flashcard study in wording and visual emphasis, appears directly below the collection name, outside the study card, and stays visible through untranslated and translated prompts, pending submission, errors, and Answer Feedback.
 - [x] A successful save updates progress immediately using the returned Recall Streak, before Next Question is chosen. Tests assert increases, decreases, and unchanged Learned status while feedback is still visible.
 - [x] Updating progress preserves the current prompt, answer order, selected options, Translation Help state, image, and Answer Feedback. It does not choose a new question or reshuffle options.
 - [x] Choosing Next Question retains the updated percentage and applies existing scheduling once using the updated streak. Existing single-choice and multiple-choice answer flows continue to work.
@@ -81,7 +81,7 @@ This slice is demoable with a question at Recall Streak two: submit a correct an
 
 ## Implementation verification — 2026-09-07
 
-- Both study sessions reuse the existing learning-progress calculator and render a muted 14px label above the prompt.
+- Both study sessions reuse the existing learning-progress calculator and render a muted 14px label directly below the collection name, outside the study card.
 - Flashcards use the existing saved-and-advanced collection state. Quizzes include the confirmed feedback streak in the calculation before Next Question, preserving the current question object and answer order.
 - A rendered retry test exposed the existing quiz form reset clearing a selected answer after failure. The form now remounts into a retry state from the retained selection, allowing the same attempt to be retried directly.
 - Red/green cycles verified the initial Flashcard label, initial Quiz label, immediate Quiz feedback update, and failed Quiz save recovery. Additional regression cases verify threshold increases/decreases, unchanged progress, pending saves, Translation Help, continuation at 100%, and empty study pages.
@@ -89,3 +89,7 @@ This slice is demoable with a question at Recall Streak two: submit a correct an
 - Local Chromium fixtures at 390px and 1440px passed visual inspection with long fronts/backs, translated prompts, answer lists, an image, and feedback. No horizontal overflow; labels remain in normal flow and scroll with the content. Temporary fixture files were removed.
 - Existing route loading and persistence contracts were reviewed for fresh-entry progress and collection scope; no additional fetching or persistence changes were introduced.
 - CodeRabbit: `cr review --agent` completed successfully. Its single finding alleged duplicate declarations of `resolveSave` and `action` in the Flashcard test. Rejected as a false positive: each is declared once in that test scope; other `action` declarations belong to separate test callbacks. The focused and full suites passed. Accepted findings: none. No review-driven code changes or verification rerun were needed. The review reported the five tracked changed files; the new empty-page test and planning documents were also checked locally.
+
+### Placement adjustment — 2026-09-07
+
+Moved the live percentage directly below the collection heading, before the study instructions and outside the question card. The session still owns the progress calculation and renders the page-provided instructions after the label. Empty-state instructions remain in place. The existing 24 focused tests, lint, and production build passed. CodeRabbit (`cr review --agent`) completed with zero findings; no review-driven changes or test rerun were needed. The earlier responsive screenshots document the original placement.

@@ -1,7 +1,7 @@
 "use client";
 
 import { calculateLearningProgress } from "@/application/learning-progress";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   createQuizStudyScheduler,
   shuffleAnswerOptions,
@@ -47,6 +47,7 @@ function createSeededRandom(seed: string) {
 
 export function QuizStudySession({
   action,
+  children,
   initialAttemptId,
   initialQuestionId,
   questions: initialQuestions,
@@ -54,6 +55,7 @@ export function QuizStudySession({
   refreshImageUrl,
 }: {
   action: QuizStudyAction;
+  children?: ReactNode;
   initialAttemptId: string;
   initialQuestionId: string;
   questions: Array<QuizStudyQuestion & { imageUrl?: string }>;
@@ -143,147 +145,150 @@ export function QuizStudySession({
   };
 
   return (
-    <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-      <p className="mb-4 text-sm text-slate-500">
+    <>
+      <p className="mt-2 text-sm text-slate-500">
         {progress.percentage}% Learned
       </p>
-      {translationHelpUsed ? (
-        <div>
-          <p className="text-2xl font-semibold leading-9 text-slate-950">
-            {question.promptEnglish}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            {question.promptNorwegian}
-          </p>
-        </div>
-      ) : (
-        <p className="text-2xl font-semibold leading-9 text-slate-950">
-          {question.promptNorwegian}
-        </p>
-      )}
-      {question.image && question.imageUrl ? (
-        <>
-          {/* Direct rendering preserves browser-supported animated GIF behavior. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt="Question Image"
-            className="mt-5 max-h-96 w-full rounded-xl object-contain"
-            src={question.imageUrl}
-          />
-        </>
-      ) : null}
-      {!feedback ? (
-        <button
-          className="mt-5 min-h-11 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 font-semibold text-sky-800"
-          disabled={pending}
-          onClick={() => setTranslationHelpUsed(true)}
-          type="button"
-        >
-          Translation Help
-        </button>
-      ) : null}
-      <form
-        action={formAction}
-        key={`${attemptId}-${feedback ? "feedback" : error ? "retry" : "answer"}`}
-      >
-        <input name="attemptId" type="hidden" value={attemptId} />
-        <input name="questionId" type="hidden" value={question.id} />
-        <input
-          name="translationHelpUsed"
-          type="hidden"
-          value={translationHelpUsed ? "true" : "false"}
-        />
-        <fieldset className="mt-7 space-y-3">
-          <legend className="sr-only">
-            {question.choiceType === "multiple"
-              ? "Choose all correct Answer Options"
-              : "Choose one Answer Option"}
-          </legend>
-          {options.map((option) => {
-            const isCorrect = feedback?.correctOptionIds.includes(option.id);
-            const isSelected = selectedOptionIds.includes(option.id);
-            const isSelectedIncorrect = feedback && isSelected && !isCorrect;
-            return (
-              <label
-                className={`flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
-                  isCorrect
-                    ? "border-emerald-500 bg-emerald-50"
-                    : isSelectedIncorrect
-                      ? "border-red-400 bg-red-50"
-                      : "border-slate-200"
-                }`}
-                key={option.id}
-              >
-                <span className="flex items-center gap-3">
-                  <input
-                    checked={isSelected}
-                    disabled={Boolean(feedback) || pending}
-                    name="selectedOptionIds"
-                    onChange={(event) => {
-                      if (question.choiceType === "single") {
-                        setSelectedOptionIds([option.id]);
-                        return;
-                      }
-                      setSelectedOptionIds((current) =>
-                        event.target.checked
-                          ? [...current, option.id]
-                          : current.filter((id) => id !== option.id),
-                      );
-                    }}
-                    required={question.choiceType === "single"}
-                    type={question.choiceType === "multiple" ? "checkbox" : "radio"}
-                    value={option.id}
-                  />
-                  {translationHelpUsed ? (
-                    <span className="flex flex-col">
-                      <span>{option.english}</span>
-                      <span className="text-sm text-slate-500">
-                        {option.norwegian}
-                      </span>
-                    </span>
-                  ) : (
-                    <span>{option.norwegian}</span>
-                  )}
-                </span>
-                {isCorrect ? (
-                  <span className="text-xs font-semibold text-emerald-800">
-                    Correct answer
-                  </span>
-                ) : isSelectedIncorrect ? (
-                  <span className="text-xs font-semibold text-red-800">
-                    Your incorrect selection
-                  </span>
-                ) : null}
-              </label>
-            );
-          })}
-        </fieldset>
-
-        {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
-        {feedback ? (
-          <div className="mt-6" aria-live="polite">
-            <p className={`font-semibold ${feedback.outcome === "correct" ? "text-emerald-800" : "text-red-800"}`}>
-              {feedback.outcome === "correct" ? "Correct" : "Incorrect"}
+      {children}
+      <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+        {translationHelpUsed ? (
+          <div>
+            <p className="text-2xl font-semibold leading-9 text-slate-950">
+              {question.promptEnglish}
             </p>
-            {feedback.translationHelpUsed ? (
-              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Translation Help used
-              </p>
-            ) : null}
-            <button className="mt-4 min-h-12 w-full rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white" onClick={advance} type="button">
-              Next Question
-            </button>
+            <p className="mt-1 text-sm text-slate-500">
+              {question.promptNorwegian}
+            </p>
           </div>
         ) : (
-          <button
-            className="mt-6 min-h-12 w-full rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400"
-            disabled={selectedOptionIds.length === 0 || pending}
-            type="submit"
-          >
-            {pending ? "Submitting…" : "Submit answer"}
-          </button>
+          <p className="text-2xl font-semibold leading-9 text-slate-950">
+            {question.promptNorwegian}
+          </p>
         )}
-      </form>
-    </section>
+        {question.image && question.imageUrl ? (
+          <>
+            {/* Direct rendering preserves browser-supported animated GIF behavior. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt="Question Image"
+              className="mt-5 max-h-96 w-full rounded-xl object-contain"
+              src={question.imageUrl}
+            />
+          </>
+        ) : null}
+        {!feedback ? (
+          <button
+            className="mt-5 min-h-11 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 font-semibold text-sky-800"
+            disabled={pending}
+            onClick={() => setTranslationHelpUsed(true)}
+            type="button"
+          >
+            Translation Help
+          </button>
+        ) : null}
+        <form
+          action={formAction}
+          key={`${attemptId}-${feedback ? "feedback" : error ? "retry" : "answer"}`}
+        >
+          <input name="attemptId" type="hidden" value={attemptId} />
+          <input name="questionId" type="hidden" value={question.id} />
+          <input
+            name="translationHelpUsed"
+            type="hidden"
+            value={translationHelpUsed ? "true" : "false"}
+          />
+          <fieldset className="mt-7 space-y-3">
+            <legend className="sr-only">
+              {question.choiceType === "multiple"
+                ? "Choose all correct Answer Options"
+                : "Choose one Answer Option"}
+            </legend>
+            {options.map((option) => {
+              const isCorrect = feedback?.correctOptionIds.includes(option.id);
+              const isSelected = selectedOptionIds.includes(option.id);
+              const isSelectedIncorrect = feedback && isSelected && !isCorrect;
+              return (
+                <label
+                  className={`flex min-h-14 items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+                    isCorrect
+                      ? "border-emerald-500 bg-emerald-50"
+                      : isSelectedIncorrect
+                        ? "border-red-400 bg-red-50"
+                        : "border-slate-200"
+                  }`}
+                  key={option.id}
+                >
+                  <span className="flex items-center gap-3">
+                    <input
+                      checked={isSelected}
+                      disabled={Boolean(feedback) || pending}
+                      name="selectedOptionIds"
+                      onChange={(event) => {
+                        if (question.choiceType === "single") {
+                          setSelectedOptionIds([option.id]);
+                          return;
+                        }
+                        setSelectedOptionIds((current) =>
+                          event.target.checked
+                            ? [...current, option.id]
+                            : current.filter((id) => id !== option.id),
+                        );
+                      }}
+                      required={question.choiceType === "single"}
+                      type={question.choiceType === "multiple" ? "checkbox" : "radio"}
+                      value={option.id}
+                    />
+                    {translationHelpUsed ? (
+                      <span className="flex flex-col">
+                        <span>{option.english}</span>
+                        <span className="text-sm text-slate-500">
+                          {option.norwegian}
+                        </span>
+                      </span>
+                    ) : (
+                      <span>{option.norwegian}</span>
+                    )}
+                  </span>
+                  {isCorrect ? (
+                    <span className="text-xs font-semibold text-emerald-800">
+                      Correct answer
+                    </span>
+                  ) : isSelectedIncorrect ? (
+                    <span className="text-xs font-semibold text-red-800">
+                      Your incorrect selection
+                    </span>
+                  ) : null}
+                </label>
+              );
+            })}
+          </fieldset>
+
+          {error ? <p className="mt-4 text-sm text-red-800" role="alert">{error}</p> : null}
+          {feedback ? (
+            <div className="mt-6" aria-live="polite">
+              <p className={`font-semibold ${feedback.outcome === "correct" ? "text-emerald-800" : "text-red-800"}`}>
+                {feedback.outcome === "correct" ? "Correct" : "Incorrect"}
+              </p>
+              {feedback.translationHelpUsed ? (
+                <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Translation Help used
+                </p>
+              ) : null}
+              <button className="mt-4 min-h-12 w-full rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white" onClick={advance} type="button">
+                Next Question
+              </button>
+            </div>
+          ) : (
+            <button
+              className="mt-6 min-h-12 w-full rounded-xl bg-sky-700 px-5 py-3 font-semibold text-white disabled:bg-slate-400"
+              disabled={selectedOptionIds.length === 0 || pending}
+              type="submit"
+            >
+              {pending ? "Submitting…" : "Submit answer"}
+            </button>
+          )}
+        </form>
+      </section>
+    </>
   );
 }

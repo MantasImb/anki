@@ -37,6 +37,12 @@ export default async function QuizStudyPage({
       : {}),
   })));
 
+  const introduction = (
+    <p className="mt-3 leading-7 text-slate-600">
+      Choose the correct answer or answers, submit once, then review the feedback.
+    </p>
+  );
+
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
       <Link
@@ -51,9 +57,7 @@ export default async function QuizStudyPage({
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
         {quiz.name}
       </h1>
-      <p className="mt-3 leading-7 text-slate-600">
-        Choose the correct answer or answers, submit once, then review the feedback.
-      </p>
+      {!question ? introduction : null}
 
       {question ? (
         <QuizStudySession
@@ -62,7 +66,9 @@ export default async function QuizStudyPage({
           initialQuestionId={question.id}
           questions={questions}
           refreshImageUrl={refreshQuizQuestionImage.bind(null, quiz.id)}
-        />
+        >
+          {introduction}
+        </QuizStudySession>
       ) : (
         <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-12">
           <h2 className="text-xl font-semibold text-slate-950">

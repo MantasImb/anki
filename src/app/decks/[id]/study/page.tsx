@@ -21,6 +21,12 @@ export default async function DeckStudyPage({
   if (!deck) notFound();
   const flashcard = createStudyScheduler().next(cards);
 
+  const introduction = (
+    <p className="mt-3 leading-7 text-slate-600">
+      Recall the English meaning, then reveal and assess your answer.
+    </p>
+  );
+
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
       <Link
@@ -35,9 +41,7 @@ export default async function DeckStudyPage({
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
         {deck.name}
       </h1>
-      <p className="mt-3 leading-7 text-slate-600">
-        Recall the English meaning, then reveal and assess your answer.
-      </p>
+      {!flashcard ? introduction : null}
 
       {flashcard ? (
         <StudySession
@@ -45,7 +49,9 @@ export default async function DeckStudyPage({
           cards={cards}
           initialAttemptId={crypto.randomUUID()}
           initialCardId={flashcard.id}
-        />
+        >
+          {introduction}
+        </StudySession>
       ) : (
         <section className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-12">
           <h2 className="text-xl font-semibold text-slate-950">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { calculateLearningProgress } from "@/application/learning-progress";
 import type { Flashcard } from "@/application/flashcards";
@@ -69,21 +69,16 @@ export function StudyCard({
   attemptId,
   error,
   flashcard,
-  learnedPercentage,
 }: {
   action: StudyAction;
   attemptId: string;
   error?: string;
   flashcard: Flashcard;
-  learnedPercentage?: number;
 }) {
   const [revealed, setRevealed] = useState(false);
 
   return (
     <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-      {learnedPercentage !== undefined ? (
-        <p className="mb-4 text-sm text-slate-500">{learnedPercentage}% Learned</p>
-      ) : null}
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
         Norwegian Front
       </p>
@@ -132,12 +127,14 @@ export function StudyCard({
 export function StudySession({
   action,
   cards: initialCards,
+  children,
   initialAttemptId,
   initialCardId,
   random = Math.random,
 }: {
   action: StudySessionAction;
   cards: Flashcard[];
+  children?: ReactNode;
   initialAttemptId: string;
   initialCardId: string;
   random?: () => number;
@@ -186,13 +183,18 @@ export function StudySession({
   };
 
   return (
-    <StudyCard
-      action={recordAndAdvance}
-      attemptId={attemptId}
-      error={error}
-      flashcard={flashcard}
-      learnedPercentage={calculateLearningProgress(cards).percentage}
-      key={attemptId}
-    />
+    <>
+      <p className="mt-2 text-sm text-slate-500">
+        {calculateLearningProgress(cards).percentage}% Learned
+      </p>
+      {children}
+      <StudyCard
+        action={recordAndAdvance}
+        attemptId={attemptId}
+        error={error}
+        flashcard={flashcard}
+        key={attemptId}
+      />
+    </>
   );
 }
