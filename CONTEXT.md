@@ -189,10 +189,11 @@ The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of
 - Submitting an answer locks its selected **Answer Options** and shows **Answer Feedback**.
 - **Answer Feedback** highlights every correct **Answer Option** and every incorrect **Answer Option** selected by the Learner.
 - **Answer Feedback** automatically shows the retained **Question Translation** for the prompt and every **Answer Option**, regardless of correctness or whether **Translation Help** was requested.
+- **Answer Feedback** keeps the Norwegian prompt and every **Answer Option** prominent, with their English translations beneath at lower visual emphasis, including after **Translation Help** was used.
 - Seeing the **Question Translation** in **Answer Feedback** does not count as using **Translation Help** and does not change the **Quiz Result** or **Recall Streak**.
 - The current question remains visible with its **Answer Feedback** until the Learner chooses Next Question.
-- When **Translation Help** is requested, English replaces the primary text of the Quiz Question prompt and every **Answer Option**.
-- While **Translation Help** is visible, each English text has its original Norwegian text displayed beneath it at lower visual emphasis.
+- Before answering, when **Translation Help** is requested, English replaces the primary text of the Quiz Question prompt and every **Answer Option**.
+- Before answering, while **Translation Help** is visible, each English text has its original Norwegian text displayed beneath it at lower visual emphasis.
 - **Translation Help** does not translate, replace, or interpret text contained inside a **Question Image**.
 - Requesting **Translation Help** makes the resulting **Quiz Result** incorrect regardless of which **Answer Option** the Learner subsequently chooses.
 - **Answer Feedback** presents a translation-assisted attempt as incorrect and includes a compact indicator that **Translation Help** caused that outcome.

@@ -223,6 +223,11 @@ describe("multiple-answer Quiz study", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
 
     expect(await screen.findByText("Incorrect")).toBeTruthy();
+    expect(screen.getByText("Which words are positive?")).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /vennlig.*friendly/ })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /snill.*kind/ })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /sint.*angry/ })).toBeTruthy();
+    expect(screen.queryByText("Translation Help used")).toBeNull();
     expect(screen.getAllByText("Correct answer")).toHaveLength(2);
     expect(screen.getByText("Your incorrect selection")).toBeTruthy();
     expect((screen.getByRole("checkbox", { name: /snill/ }) as HTMLInputElement).checked)
@@ -285,7 +290,7 @@ describe("single-answer Quiz study", () => {
     expect((angry as HTMLInputElement).checked).toBe(true);
   });
 
-  it("locks the selection and keeps Answer Feedback visible until Next Question", async () => {
+  it("reveals all English translations after a correct answer without counting Translation Help", async () => {
     const action = vi.fn(async () => ({
       questionId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",
       outcome: "correct" as const,
@@ -303,6 +308,9 @@ describe("single-answer Quiz study", () => {
       />,
     );
 
+    expect(screen.queryByText("What does polite mean?")).toBeNull();
+    expect(screen.queryByText("friendly")).toBeNull();
+    expect(screen.queryByText("angry")).toBeNull();
     const selectedAnswer = screen.getByRole("radio", { name: "vennlig" });
     await userEvent.click(selectedAnswer);
     await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
@@ -312,10 +320,21 @@ describe("single-answer Quiz study", () => {
       .toBe(true);
     expect(screen.getByText("Correct answer")).toBeTruthy();
     expect(screen.getByText("Hva betyr høflig?")).toBeTruthy();
+    expect(screen.getByText("What does polite mean?")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /vennlig.*friendly/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /sint.*angry/ })).toBeTruthy();
+    expect(screen.getByText("Hva betyr høflig?").nextElementSibling)
+      .toBe(screen.getByText("What does polite mean?"));
+    expect(action.mock.calls[0][0].get("translationHelpUsed")).toBe("false");
+    expect(screen.queryByText("Translation Help used")).toBeNull();
     await waitFor(() => expect(screen.getAllByRole("radio").every((radio) =>
       (radio as HTMLInputElement).disabled
     )).toBe(true));
     expect(screen.getByRole("button", { name: "Next Question" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Next Question" }));
+    expect(screen.queryByText("What does polite mean?")).toBeNull();
+    expect(screen.getByRole("radio", { name: "vennlig" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "sint" })).toBeTruthy();
   });
 
   it("makes retained English primary and marks the answer translation-assisted", async () => {
@@ -361,6 +380,11 @@ describe("single-answer Quiz study", () => {
 
     expect(await screen.findByText("Translation Help used")).toBeTruthy();
     expect(action.mock.calls[0][0].get("translationHelpUsed")).toBe("true");
+    expect(screen.getByText("Incorrect")).toBeTruthy();
+    expect(screen.getByText("Hva betyr høflig?").nextElementSibling)
+      .toBe(screen.getByText("What does polite mean?"));
+    expect(screen.getByRole("radio", { name: /vennlig.*friendly/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /sint.*angry/ })).toBeTruthy();
   });
 
   it("advances adaptively only after the Learner chooses Next Question", async () => {
@@ -495,6 +519,9 @@ describe("single-answer Quiz study", () => {
       .toHaveProperty("disabled", true);
     expect(screen.getByRole("button", { name: "Submitting…" }))
       .toHaveProperty("disabled", true);
+    expect(screen.queryByText("What does polite mean?")).toBeNull();
+    expect(screen.queryByText("friendly")).toBeNull();
+    expect(screen.queryByText("angry")).toBeNull();
 
     finish?.({
       questionId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",

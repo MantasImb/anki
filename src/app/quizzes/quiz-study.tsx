@@ -116,6 +116,9 @@ export function QuizStudySession({
 
   if (!question) return null;
 
+  const showTranslation = translationHelpUsed || Boolean(feedback);
+  const englishPrimary = translationHelpUsed && !feedback;
+
   // Include the saved result during feedback without changing the active
   // question (and its shuffled answers) before Next Question.
   const progress = calculateLearningProgress(
@@ -151,13 +154,13 @@ export function QuizStudySession({
       </p>
       {children}
       <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-        {translationHelpUsed ? (
+        {showTranslation ? (
           <div>
             <p className="text-2xl font-semibold leading-9 text-slate-950">
-              {question.promptEnglish}
+              {englishPrimary ? question.promptEnglish : question.promptNorwegian}
             </p>
             <p className="mt-1 text-sm text-slate-500">
-              {question.promptNorwegian}
+              {englishPrimary ? question.promptNorwegian : question.promptEnglish}
             </p>
           </div>
         ) : (
@@ -238,11 +241,11 @@ export function QuizStudySession({
                       type={question.choiceType === "multiple" ? "checkbox" : "radio"}
                       value={option.id}
                     />
-                    {translationHelpUsed ? (
+                    {showTranslation ? (
                       <span className="flex flex-col">
-                        <span>{option.english}</span>
+                        <span>{englishPrimary ? option.english : option.norwegian}</span>
                         <span className="text-sm text-slate-500">
-                          {option.norwegian}
+                          {englishPrimary ? option.norwegian : option.english}
                         </span>
                       </span>
                     ) : (
