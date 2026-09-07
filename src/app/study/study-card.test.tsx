@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StudyCard, StudySession } from "./study-card";
@@ -11,6 +11,50 @@ afterEach(() => {
 });
 
 describe("study card", () => {
+  it("updates Deck Progress only after a saved result and keeps studying at 100%", async () => {
+    let resolveSave!: (value: { flashcardId: string; recallStreak: number }) => void;
+    const action = vi.fn<(data: FormData) => Promise<{ flashcardId: string; recallStreak: number }>>()
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSave = resolve; }))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ flashcardId: "card-0", recallStreak: 0 })
+      .mockResolvedValueOnce({ flashcardId: "card-0", recallStreak: 1 });
+    render(<StudySession action={action}
+      cards={[{ ...weightedCardsForStudy()[0], recallStreak: 2 }]}
+      initialAttemptId="attempt-0" initialCardId="card-0" random={() => 0} />);
+    expect(screen.getByText("0% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    expect(screen.getByText("0% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Correct" }));
+    expect(screen.getByText("0% Learned")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Correct" })).toHaveProperty("disabled", true);
+    await act(async () => resolveSave({ flashcardId: "card-0", recallStreak: 3 }));
+    expect(screen.getByText("100% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Incorrect" }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByText("100% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Incorrect" }));
+    expect(await screen.findByText("0% Learned")).toBeTruthy();
+    expect(action.mock.calls[1][0].get("attemptId")).toBe(action.mock.calls[2][0].get("attemptId"));
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Correct" }));
+    expect(screen.getByText("0% Learned")).toBeTruthy();
+  });
+
+  it("shows rounded Deck Progress across cards not yet studied", () => {
+    render(
+      <StudySession
+        action={vi.fn()}
+        cards={[0, 2, 3].map((recallStreak, index) => ({
+          id: String(index), deckId: "deck-a", front: "front", back: "back", recallStreak,
+        }))}
+        initialAttemptId="attempt-0"
+        initialCardId="0"
+      />,
+    );
+    expect(screen.getByText("33% Learned")).toBeTruthy();
+  });
+
   it("continues with an eligible Flashcard after an Incorrect result", async () => {
     const action = vi.fn(async (formData: FormData) => ({
       flashcardId: formData.get("flashcardId") as string,

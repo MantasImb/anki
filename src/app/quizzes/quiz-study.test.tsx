@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { act } from "react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { QuizQuestion } from "@/application/quiz-questions";
 import { prepareQuizStudyQuestion } from "@/application/quiz-study";
-import { QuizStudySession } from "./quiz-study";
+import { QuizStudySession, type QuizStudyAction } from "./quiz-study";
 
 afterEach(() => {
   cleanup();
@@ -76,6 +75,93 @@ function multipleQuestion(): QuizQuestion {
 }
 
 describe("multiple-answer Quiz study", () => {
+  it.each([
+    [3, 0, "incorrect", "100% Learned", "0% Learned"],
+    [0, 1, "correct", "0% Learned", "0% Learned"],
+    [3, 3, "correct", "100% Learned", "100% Learned"],
+  ] as const)("uses the saved streak %s → %s during feedback", async (before, after, outcome, initial, expected) => {
+    const question = singleQuestion({ recallStreak: before });
+    render(<QuizStudySession action={async () => ({
+      questionId: question.id, outcome, translationHelpUsed: false,
+      recallStreak: after, correctOptionIds: [question.options[0].id],
+    })} initialAttemptId="attempt" initialQuestionId={question.id}
+      questions={[prepareQuizStudyQuestion(question)]} />);
+    expect(screen.getByText(initial)).toBeTruthy();
+    await userEvent.click(screen.getByRole("radio", { name: outcome === "correct" ? "vennlig" : "sint" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(await screen.findByRole("button", { name: "Next Question" })).toBeTruthy();
+    expect(screen.getByText(expected)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Next Question" }));
+    expect(screen.getByText(expected)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Submit answer" })).toBeTruthy();
+  });
+
+  it("keeps Quiz Progress through pending and failed saves, then applies a translation-assisted retry once", async () => {
+    let rejectSave!: (reason: Error) => void;
+    const question = singleQuestion({ recallStreak: 3 });
+    const action = vi.fn<QuizStudyAction>()
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSave = reject; }))
+      .mockResolvedValue({ questionId: question.id, outcome: "incorrect", translationHelpUsed: true,
+        recallStreak: 0, correctOptionIds: [question.options[0].id] });
+    render(<QuizStudySession action={action} initialAttemptId="attempt"
+      initialQuestionId={question.id} questions={[prepareQuizStudyQuestion(question)]} />);
+    expect(screen.getByText("100% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Translation Help" }));
+    await userEvent.click(screen.getByRole("radio", { name: /friendly/ }));
+    expect(screen.getByText("100% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(screen.getByRole("button", { name: "Submitting…" })).toHaveProperty("disabled", true);
+    expect(screen.getByText("100% Learned")).toBeTruthy();
+    await act(async () => rejectSave(new Error("offline")));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Submit answer" })).toHaveProperty("disabled", false));
+    expect(screen.getByRole("radio", { name: /friendly/ })).toHaveProperty("checked", true);
+    expect(screen.getByText("100% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(await screen.findByText("Translation Help used")).toBeTruthy();
+    expect(screen.getByText("0% Learned")).toBeTruthy();
+    expect(screen.getByText(question.promptEnglish)).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /friendly/ })).toHaveProperty("checked", true);
+    expect(action.mock.calls[0][0].get("attemptId")).toBe(action.mock.calls[1][0].get("attemptId"));
+    await userEvent.click(screen.getByRole("button", { name: "Next Question" }));
+    expect(screen.getByText("0% Learned")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Submit answer" })).toBeTruthy();
+  });
+
+  it("updates Quiz Progress during feedback without changing answers or counting Next Question twice", async () => {
+    const question = singleQuestion({ recallStreak: 2 });
+    const action = vi.fn(async () => ({
+      questionId: question.id, outcome: "correct" as const, translationHelpUsed: false,
+      recallStreak: 3, correctOptionIds: [question.options[0].id],
+    }));
+    const random = vi.fn().mockReturnValueOnce(0.9).mockReturnValue(0);
+    render(<QuizStudySession action={action} initialAttemptId="attempt"
+      initialQuestionId={question.id} questions={[prepareQuizStudyQuestion(question),
+        prepareQuizStudyQuestion(singleQuestion({ id: "next", promptNorwegian: "Neste spørsmål", recallStreak: 3 }))]}
+      random={random} />);
+    const answerOrder = screen.getAllByRole("radio").map((input) => (input as HTMLInputElement).value);
+    expect(screen.getByText("50% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("radio", { name: "vennlig" }));
+    expect(screen.getByText("50% Learned")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(await screen.findByText("Correct")).toBeTruthy();
+    expect(screen.getByText("100% Learned")).toBeTruthy();
+    expect(screen.getByText(question.promptNorwegian)).toBeTruthy();
+    expect(screen.getAllByRole("radio").map((input) => (input as HTMLInputElement).value)).toEqual(answerOrder);
+    expect(screen.getByRole("radio", { name: /vennlig/ })).toHaveProperty("checked", true);
+    await userEvent.click(screen.getByRole("button", { name: "Next Question" }));
+    expect(screen.getByText("Neste spørsmål")).toBeTruthy();
+    expect(screen.getByText("100% Learned")).toBeTruthy();
+  });
+
+  it("shows rounded Quiz Progress across all questions", () => {
+    render(<QuizStudySession action={vi.fn()} initialAttemptId="attempt"
+      initialQuestionId={singleQuestion().id}
+      questions={[0, 2, 3].map((recallStreak, index) =>
+        prepareQuizStudyQuestion(singleQuestion({ id: index === 0 ? singleQuestion().id : String(index), recallStreak })))} />);
+    expect(screen.getByText("33% Learned")).toBeTruthy();
+  });
+
   it("allows multiple selections before one explicit submission", async () => {
     const action = vi.fn(async () => ({
       questionId: "420d7e63-b4e4-4f5c-b88d-93ab42add48a",

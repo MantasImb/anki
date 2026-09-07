@@ -214,6 +214,9 @@ The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of
 - The Learner selects a **Quiz** before studying, browsing, adding, or editing its Quiz Questions.
 - Top-level navigation exposes separate **Flashcard Decks** and **Quizzes** destinations.
 - A collection detail view shows its own progress, item list, Study action, and Add action.
+- During study, the Learner can see the active collection's **Deck Progress** or **Quiz Progress**, using the same collection-wide measure as its detail view.
+- Study progress appears as a small, visually subdued “25% Learned” label above the current Flashcard or Quiz Question and scrolls with the study content.
+- During study, **Deck Progress** and **Quiz Progress** update immediately after a **Study Result** or **Quiz Result** is successfully recorded, including while **Answer Feedback** is visible; an unsaved result does not change the displayed progress.
 - **Quiz Progress** is the number of **Learned Questions** divided by the total number of **Quiz Questions** in that Quiz.
 - A Quiz is fully learned only when its **Quiz Progress** reaches 100 percent.
 - A fully learned Quiz retains every Quiz Question's progress and remains available for continued study through the same scheduler.

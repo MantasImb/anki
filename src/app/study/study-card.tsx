@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { calculateLearningProgress } from "@/application/learning-progress";
 import type { Flashcard } from "@/application/flashcards";
 import {
   createStudyScheduler,
@@ -68,16 +69,21 @@ export function StudyCard({
   attemptId,
   error,
   flashcard,
+  learnedPercentage,
 }: {
   action: StudyAction;
   attemptId: string;
   error?: string;
   flashcard: Flashcard;
+  learnedPercentage?: number;
 }) {
   const [revealed, setRevealed] = useState(false);
 
   return (
     <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+      {learnedPercentage !== undefined ? (
+        <p className="mb-4 text-sm text-slate-500">{learnedPercentage}% Learned</p>
+      ) : null}
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
         Norwegian Front
       </p>
@@ -185,6 +191,7 @@ export function StudySession({
       attemptId={attemptId}
       error={error}
       flashcard={flashcard}
+      learnedPercentage={calculateLearningProgress(cards).percentage}
       key={attemptId}
     />
   );

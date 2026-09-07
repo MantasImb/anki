@@ -1,5 +1,6 @@
 "use client";
 
+import { calculateLearningProgress } from "@/application/learning-progress";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
   createQuizStudyScheduler,
@@ -113,6 +114,16 @@ export function QuizStudySession({
 
   if (!question) return null;
 
+  // Include the saved result during feedback without changing the active
+  // question (and its shuffled answers) before Next Question.
+  const progress = calculateLearningProgress(
+    questions.map((candidate) =>
+      feedback && candidate.id === question.id
+        ? { recallStreak: feedback.recallStreak }
+        : candidate,
+    ),
+  );
+
   const advance = () => {
     if (!feedback) return;
     const updatedQuestions = questions.map((candidate) =>
@@ -133,6 +144,9 @@ export function QuizStudySession({
 
   return (
     <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+      <p className="mb-4 text-sm text-slate-500">
+        {progress.percentage}% Learned
+      </p>
       {translationHelpUsed ? (
         <div>
           <p className="text-2xl font-semibold leading-9 text-slate-950">
@@ -170,7 +184,7 @@ export function QuizStudySession({
       ) : null}
       <form
         action={formAction}
-        key={`${attemptId}-${feedback ? "feedback" : "answer"}`}
+        key={`${attemptId}-${feedback ? "feedback" : error ? "retry" : "answer"}`}
       >
         <input name="attemptId" type="hidden" value={attemptId} />
         <input name="questionId" type="hidden" value={question.id} />
