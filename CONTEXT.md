@@ -103,6 +103,9 @@ _Avoid_: Deck Score
 **Learning Status**:
 The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of three and In Progress otherwise.
 
+**Learned Milestone**:
+The moment a Flashcard or Quiz Question becomes Learned by increasing its Recall Streak from two to three.
+
 ## Relationships
 
 - The **Learner** supplies **Source Text**, manages **Card Drafts**, and studies **Flashcards** and **Quiz Questions**.
@@ -220,6 +223,10 @@ The visible state of a Flashcard or Quiz Question: Learned at a Recall Streak of
 - During study, the Learner can see the active collection's **Deck Progress** or **Quiz Progress**, using the same collection-wide measure as its detail view.
 - Study progress appears as a small, visually subdued “25% Learned” label directly below the collection name, outside the study card and scrolls with the study content.
 - During study, **Deck Progress** and **Quiz Progress** update immediately after a **Study Result** or **Quiz Result** is successfully recorded, including while **Answer Feedback** is visible; an unsaved result does not change the displayed progress.
+- A successfully recorded **Learned Milestone** shows the line “Answered correctly 3 times in a row. Now learned!” in both flashcard and quiz study.
+- The milestone line appears only when the **Recall Streak** increases from two to three, not whenever an already Learned Flashcard or Quiz Question appears or is answered correctly again.
+- Flashcard study announces the **Learned Milestone** in a toast while continuing automatically to the next Flashcard.
+- Quiz study shows the **Learned Milestone** line beneath “Correct” in **Answer Feedback**, keeping it visible until the Learner chooses Next Question.
 - **Quiz Progress** is the number of **Learned Questions** divided by the total number of **Quiz Questions** in that Quiz.
 - A Quiz is fully learned only when its **Quiz Progress** reaches 100 percent.
 - A fully learned Quiz retains every Quiz Question's progress and remains available for continued study through the same scheduler.

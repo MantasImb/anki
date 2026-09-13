@@ -2,7 +2,7 @@
 
 > Source PRD: [Show the learned percentage during study](../docs/prd/show-learned-percentage-during-study.md)
 >
-> Tracking issue: [Show the learned percentage during study](../docs/issues/show-learned-percentage-during-study.md)
+> Tracking issue: [Show the learned percentage during study](../docs/issues/completed/show-learned-percentage-during-study.md)
 
 The Learner approved two vertical slices: complete Flashcard study progress first, then complete Quiz study progress. Each phase includes its own rendered behavior tests and responsive visual verification.
 

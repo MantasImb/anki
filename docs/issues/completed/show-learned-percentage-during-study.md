@@ -2,7 +2,7 @@
 title: Show the learned percentage during study
 labels:
   - ready-for-agent
-prd: ../prd/show-learned-percentage-during-study.md
+prd: ../../prd/show-learned-percentage-during-study.md
 status: completed
 ---
 
@@ -10,7 +10,7 @@ status: completed
 
 ## Summary
 
-Implement the [product requirements](../prd/show-learned-percentage-during-study.md). Show the active collection's learned percentage during both Flashcard and Quiz study as a small, muted “25% Learned” label directly below the collection name, outside the study card. Update it immediately after a successful save, including while Quiz Answer Feedback remains visible.
+Implement the [product requirements](../../prd/show-learned-percentage-during-study.md). Show the active collection's learned percentage during both Flashcard and Quiz study as a small, muted “25% Learned” label directly below the collection name, outside the study card. Update it immediately after a successful save, including while Quiz Answer Feedback remains visible.
 
 ## Acceptance Criteria
 
@@ -44,9 +44,9 @@ Hold a save pending, reject it, and retry successfully to verify progress reflec
 
 ## References
 
-- [Product requirements](../prd/show-learned-percentage-during-study.md)
-- [Implementation plan](../../plans/show-learned-percentage-during-study.md)
-- [Domain language](../../CONTEXT.md)
+- [Product requirements](../../prd/show-learned-percentage-during-study.md)
+- [Implementation plan](../../../plans/show-learned-percentage-during-study.md)
+- [Domain language](../../../CONTEXT.md)
 
 ## Implementation verification — 2026-09-07
 

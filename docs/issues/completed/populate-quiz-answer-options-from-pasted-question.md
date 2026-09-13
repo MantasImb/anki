@@ -2,7 +2,7 @@
 title: Populate Quiz Answer Options from a pasted question
 labels:
   - ready-for-agent
-prd: ../prd/populate-quiz-answer-options-from-pasted-question.md
+prd: ../../prd/populate-quiz-answer-options-from-pasted-question.md
 status: completed
 ---
 
@@ -10,7 +10,7 @@ status: completed
 
 ## Summary
 
-Implement the [product requirements](../prd/populate-quiz-answer-options-from-pasted-question.md). Pasting a Norwegian question followed by newline-separated answers into the Norwegian prompt field automatically separates the question and its Answer Options. The Learner marks correct answers manually. Existing answers are preserved, and a toast offers Undo to restore the behavior of an ordinary paste when detection is wrong.
+Implement the [product requirements](../../prd/populate-quiz-answer-options-from-pasted-question.md). Pasting a Norwegian question followed by newline-separated answers into the Norwegian prompt field automatically separates the question and its Answer Options. The Learner marks correct answers manually. Existing answers are preserved, and a toast offers Undo to restore the behavior of an ordinary paste when detection is wrong.
 
 ## Example
 
@@ -62,6 +62,6 @@ Use deterministic unit tests for interpretation and the existing question-form c
 
 ## References
 
-- [Product requirements](../prd/populate-quiz-answer-options-from-pasted-question.md)
-- [Domain language](../../CONTEXT.md)
-- [Implementation plan and verification](../../plans/populate-quiz-answer-options-from-pasted-question.md)
+- [Product requirements](../../prd/populate-quiz-answer-options-from-pasted-question.md)
+- [Domain language](../../../CONTEXT.md)
+- [Implementation plan and verification](../../../plans/populate-quiz-answer-options-from-pasted-question.md)

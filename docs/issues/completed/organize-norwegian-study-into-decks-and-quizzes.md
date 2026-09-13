@@ -2,7 +2,7 @@
 title: Organize Norwegian study into Flashcard Decks and Quizzes
 labels:
   - completed
-prd: ../prd/norwegian-learning-v2.md
+prd: ../../prd/norwegian-learning-v2.md
 status: completed
 ---
 
@@ -70,11 +70,11 @@ Build the v2 single-Learner experience described in the linked PRD. The Learner 
 
 ## References
 
-- [Product requirements](../prd/norwegian-learning-v2.md)
-- [Domain language](../../CONTEXT.md)
-- [PostgreSQL and Railway decision](../adr/0001-use-postgresql-on-railway.md)
-- [LLM provider boundary decision](../adr/0002-isolate-llm-providers-behind-a-generation-interface.md)
-- [Google Translation decision](../adr/0003-use-google-cloud-translation-behind-a-translation-interface.md)
-- [Question Image storage decision](../adr/0004-store-question-images-in-railway-buckets.md)
-- [Deferred authentication decision](../adr/0005-defer-authentication-for-single-learner-v2.md)
-- [Production browser test guide](../playwright-release-test.md)
+- [Product requirements](../../prd/norwegian-learning-v2.md)
+- [Domain language](../../../CONTEXT.md)
+- [PostgreSQL and Railway decision](../../adr/0001-use-postgresql-on-railway.md)
+- [LLM provider boundary decision](../../adr/0002-isolate-llm-providers-behind-a-generation-interface.md)
+- [Google Translation decision](../../adr/0003-use-google-cloud-translation-behind-a-translation-interface.md)
+- [Question Image storage decision](../../adr/0004-store-question-images-in-railway-buckets.md)
+- [Deferred authentication decision](../../adr/0005-defer-authentication-for-single-learner-v2.md)
+- [Production browser test guide](../../playwright-release-test.md)

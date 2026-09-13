@@ -2,7 +2,7 @@
 title: Create and study Norwegian flashcards from source text
 labels:
   - completed
-prd: ../prd/norwegian-flashcards-v1.md
+prd: ../../prd/norwegian-flashcards-v1.md
 status: completed
 ---
 
@@ -52,8 +52,8 @@ Build the v1 single-Learner application described in the linked PRD. The Learner
 
 ## References
 
-- [Product requirements](../prd/norwegian-flashcards-v1.md)
-- [Domain language](../../CONTEXT.md)
-- [PostgreSQL and Railway decision](../adr/0001-use-postgresql-on-railway.md)
-- [LLM provider boundary decision](../adr/0002-isolate-llm-providers-behind-a-generation-interface.md)
-- [V1 implementation plan](../v1-implementation-plan.md)
+- [Product requirements](../../prd/norwegian-flashcards-v1.md)
+- [Domain language](../../../CONTEXT.md)
+- [PostgreSQL and Railway decision](../../adr/0001-use-postgresql-on-railway.md)
+- [LLM provider boundary decision](../../adr/0002-isolate-llm-providers-behind-a-generation-interface.md)
+- [V1 implementation plan](../../v1-implementation-plan.md)
