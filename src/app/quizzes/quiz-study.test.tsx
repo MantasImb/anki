@@ -74,6 +74,90 @@ function multipleQuestion(): QuizQuestion {
   };
 }
 
+describe("Quiz Learned Milestone", () => {
+  it("waits for a successful save, including after a failed multiple-answer attempt", async () => {
+    const question = { ...multipleQuestion(), recallStreak: 2 };
+    let rejectSave!: (reason: Error) => void;
+    const action = vi.fn<QuizStudyAction>()
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSave = reject; }))
+      .mockResolvedValue({
+        questionId: question.id, outcome: "correct", translationHelpUsed: false,
+        recallStreak: 3, correctOptionIds: question.options.filter((option) => option.isCorrect).map((option) => option.id),
+      });
+    render(<QuizStudySession action={action} initialAttemptId="attempt"
+      initialQuestionId={question.id} questions={[prepareQuizStudyQuestion(question)]} />);
+    const milestone = "Answered correctly 3 times in a row. Now learned!";
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "vennlig" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "snill" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(screen.getByRole("button", { name: "Submitting…" })).toHaveProperty("disabled", true);
+    expect(screen.queryByText(milestone)).toBeNull();
+    await act(async () => rejectSave(new Error("offline")));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.queryByText(milestone)).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(await screen.findByText(milestone)).toBeTruthy();
+    expect(screen.getAllByText(milestone)).toHaveLength(1);
+    expect(action.mock.calls[0][0].get("attemptId")).toBe(action.mock.calls[1][0].get("attemptId"));
+    expect(screen.getByRole("checkbox", { name: /vennlig/ })).toHaveProperty("checked", true);
+    expect(screen.getByRole("checkbox", { name: /snill/ })).toHaveProperty("checked", true);
+  });
+
+  it.each([
+    [0, 1, "correct", false],
+    [1, 2, "correct", false],
+    [3, 3, "correct", false],
+    [2, 0, "incorrect", false],
+    [2, 0, "incorrect", true],
+  ] as const)("does not announce streak %s → %s (%s, Translation Help: %s)", async (before, after, outcome, translationHelpUsed) => {
+    const question = singleQuestion({ recallStreak: before });
+    render(<QuizStudySession action={async () => ({
+      questionId: question.id, outcome, translationHelpUsed,
+      recallStreak: after, correctOptionIds: [question.options[0].id],
+    })} initialAttemptId="attempt" initialQuestionId={question.id}
+      questions={[prepareQuizStudyQuestion(question)]} />);
+    const milestone = "Answered correctly 3 times in a row. Now learned!";
+    expect(screen.queryByText(milestone)).toBeNull();
+    if (translationHelpUsed) {
+      await userEvent.click(screen.getByRole("button", { name: "Translation Help" }));
+    }
+    await userEvent.click(screen.getByRole("radio", { name: outcome === "correct" || translationHelpUsed ? /vennlig/ : /sint/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(await screen.findByRole("button", { name: "Next Question" })).toBeTruthy();
+    expect(screen.queryByText(milestone)).toBeNull();
+  });
+
+  it("announces the saved two-to-three transition until Next Question, without repeating at three", async () => {
+    const question = singleQuestion({ recallStreak: 2 });
+    render(<QuizStudySession action={async () => ({
+      questionId: question.id, outcome: "correct", translationHelpUsed: false,
+      recallStreak: 3, correctOptionIds: [question.options[0].id],
+    })} initialAttemptId="attempt" initialQuestionId={question.id}
+      questions={[prepareQuizStudyQuestion(question)]} />);
+
+    const milestone = "Answered correctly 3 times in a row. Now learned!";
+    expect(screen.queryByText(milestone)).toBeNull();
+    await userEvent.click(screen.getByRole("radio", { name: "vennlig" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+
+    expect(await screen.findByText(milestone)).toBeTruthy();
+    expect(screen.getByText("Correct").nextElementSibling).toBe(screen.getByText(milestone));
+    expect(screen.getByText(question.promptNorwegian)).toBeTruthy();
+    expect(screen.getByText(question.promptEnglish)).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /vennlig/ })).toHaveProperty("checked", true);
+    expect(screen.getByText("Correct answer")).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: "Next Question" }));
+    expect(screen.queryByText(milestone)).toBeNull();
+    await userEvent.click(screen.getByRole("radio", { name: "vennlig" }));
+    await userEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    expect(await screen.findByText("Correct")).toBeTruthy();
+    expect(screen.queryByText(milestone)).toBeNull();
+  });
+});
+
 describe("multiple-answer Quiz study", () => {
   it.each([
     [3, 0, "incorrect", "100% Learned", "0% Learned"],

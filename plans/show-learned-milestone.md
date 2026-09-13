@@ -1,6 +1,6 @@
 # Plan: Announce learned milestones
 
-Status: Design agreed for both parts; implementation not started.
+Status: Part 2 (Quizzes) implemented and verified. Part 1 (Flashcards) not started.
 
 ## Shared behavior
 
@@ -29,8 +29,17 @@ Show the milestone line beneath “Correct” in Answer Feedback after a success
 
 Acceptance criteria:
 
-- [ ] The saved two-to-three transition shows the milestone alongside Answer Feedback.
-- [ ] Next Question clears the message; another correct result at streak three does not show it again.
-- [ ] Pending, failed, incorrect, and Translation Help-assisted results do not announce a milestone.
-- [ ] Preserve the current question, translations, answer highlighting, and Next Question behavior.
-- [ ] Verify milestone and non-milestone feedback, save failure/retry behavior, and phone and desktop presentation.
+- [x] The saved two-to-three transition shows the milestone alongside Answer Feedback.
+- [x] Next Question clears the message; another correct result at streak three does not show it again.
+- [x] Pending, failed, incorrect, and Translation Help-assisted results do not announce a milestone.
+- [x] Preserve the current question, translations, answer highlighting, and Next Question behavior.
+- [x] Verify milestone and non-milestone feedback, save failure/retry behavior, and phone and desktop presentation.
+
+Verification:
+
+- Component tests in `src/app/quizzes/quiz-study.test.tsx` cover the milestone lifetime, non-milestone results, and pending/failed save with a successful multiple-answer retry. The new milestone test failed before implementation and passed afterward.
+- `bun run test src/app/quizzes/quiz-study.test.tsx`: 22 tests passed.
+- `bun run test`: 343 tests passed across 62 files.
+- `bun run lint` and `bun run build`: passed.
+- `cr review --agent`: completed with no findings in the two changed source/test files.
+- Chromium preview of the actual component with a simulated successful save and production CSS: visually checked at 390 × 844 and 1280 × 900. The message sits beneath Correct, has no horizontal overflow, and clears on Next Question. No live quiz data was changed.

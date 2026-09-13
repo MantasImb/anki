@@ -118,6 +118,8 @@ export function QuizStudySession({
 
   const showTranslation = translationHelpUsed || Boolean(feedback);
   const englishPrimary = translationHelpUsed && !feedback;
+  const learnedMilestone = question.recallStreak === 2 &&
+    feedback?.recallStreak === 3;
 
   // Include the saved result during feedback without changing the active
   // question (and its shuffled answers) before Next Question.
@@ -272,6 +274,11 @@ export function QuizStudySession({
               <p className={`font-semibold ${feedback.outcome === "correct" ? "text-emerald-800" : "text-red-800"}`}>
                 {feedback.outcome === "correct" ? "Correct" : "Incorrect"}
               </p>
+              {learnedMilestone ? (
+                <p className="mt-1 text-sm text-emerald-800">
+                  Answered correctly 3 times in a row. Now learned!
+                </p>
+              ) : null}
               {feedback.translationHelpUsed ? (
                 <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Translation Help used
