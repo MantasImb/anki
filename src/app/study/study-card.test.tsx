@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StudyCard, StudySession } from "./study-card";
@@ -8,9 +8,108 @@ import { StudyCard, StudySession } from "./study-card";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("study card", () => {
+  it("waits for a saved milestone after a pending and failed attempt, then retries once", async () => {
+    let rejectSave!: (reason: Error) => void;
+    const action = vi.fn<(data: FormData) => Promise<{ flashcardId: string; recallStreak: number }>>()
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSave = reject; }))
+      .mockResolvedValue({ flashcardId: "card-0", recallStreak: 3 });
+    render(<StudySession action={action}
+      cards={[{ ...weightedCardsForStudy()[0], recallStreak: 2 }]}
+      initialAttemptId="attempt-0" initialCardId="card-0" random={() => 0} />);
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Correct" }));
+    expect(screen.getByRole("button", { name: "Correct" })).toHaveProperty("disabled", true);
+    expect(screen.queryByText("Flashcard learned: null")).toBeNull();
+    await act(async () => rejectSave(new Error("offline")));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.queryByText("Flashcard learned: null")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Correct" }));
+    expect(screen.getAllByText("Flashcard learned: null")).toHaveLength(1);
+    expect(action.mock.calls[0][0].get("attemptId")).toBe(action.mock.calls[1][0].get("attemptId"));
+    expect(screen.getByRole("button", { name: "Reveal English Back" })).toBeTruthy();
+  });
+
+  it.each([
+    [0, 1, "Correct"], [1, 2, "Correct"], [3, 3, "Correct"], [2, 0, "Incorrect"],
+  ] as const)("does not announce a saved streak %s → %s after %s", async (before, after, assessment) => {
+    render(<StudySession action={async () => ({ flashcardId: "card-0", recallStreak: after })}
+      cards={[{ ...weightedCardsForStudy()[0], recallStreak: before }]}
+      initialAttemptId="attempt-0" initialCardId="card-0" random={() => 0} />);
+    expect(screen.queryByText("Flashcard learned: null")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    await userEvent.click(screen.getByRole("button", { name: assessment }));
+    expect(screen.queryByText("Flashcard learned: null")).toBeNull();
+    expect(screen.getByRole("button", { name: "Reveal English Back" })).toBeTruthy();
+  });
+
+  it("announces a new milestone after a streak reset and three more correct results", async () => {
+    const action = vi.fn<(data: FormData) => Promise<{ flashcardId: string; recallStreak: number }>>();
+    for (const recallStreak of [3, 0, 1, 2, 3]) {
+      action.mockResolvedValueOnce({ flashcardId: "card-0", recallStreak });
+    }
+    render(<StudySession action={action}
+      cards={[{ ...weightedCardsForStudy()[0], recallStreak: 2 }]}
+      initialAttemptId="attempt-0" initialCardId="card-0" random={() => 0} />);
+    for (const [index, assessment] of ["Correct", "Incorrect", "Correct", "Correct", "Correct"].entries()) {
+      await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+      await userEvent.click(screen.getByRole("button", { name: assessment }));
+      if (index === 0 || index === 4) {
+        expect(screen.getByText("Flashcard learned: null")).toBeTruthy();
+        await userEvent.click(screen.getByRole("button", { name: "Dismiss learned flashcard notification" }));
+      } else {
+        expect(screen.queryByText("Flashcard learned: null")).toBeNull();
+      }
+    }
+  });
+
+  it("lets the Learner dismiss a toast and does not repeat it for an already Learned card", async () => {
+    render(<StudySession action={async () => ({ flashcardId: "card-0", recallStreak: 3 })}
+      cards={[{ ...weightedCardsForStudy()[0], recallStreak: 2 }]}
+      initialAttemptId="attempt-0" initialCardId="card-0" random={() => 0} />);
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Correct" }));
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss learned flashcard notification" }));
+    expect(screen.queryByText("Flashcard learned: null")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Correct" }));
+    expect(screen.queryByText("Flashcard learned: null")).toBeNull();
+  });
+
+  it("dismisses the toast after six seconds without interrupting the next card", async () => {
+    render(<StudySession action={async () => ({ flashcardId: "card-0", recallStreak: 3 })}
+      cards={weightedCardsForStudy().map((card) => ({ ...card, recallStreak: 2 }))}
+      initialAttemptId="attempt-0" initialCardId="card-0" random={() => 0} />);
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    vi.useFakeTimers();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Correct" })); });
+    expect(screen.getByText("Flashcard learned: null")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    await act(async () => vi.advanceTimersByTime(6000));
+    expect(screen.queryByText("Flashcard learned: null")).toBeNull();
+    expect(screen.getByText("one")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Correct" })).toBeTruthy();
+  });
+
+  it("announces the learned Flashcard while advancing automatically to the next card", async () => {
+    render(<StudySession action={async () => ({ flashcardId: "card-0", recallStreak: 3 })}
+      cards={weightedCardsForStudy().map((card) => ({ ...card, recallStreak: 2 }))}
+      initialAttemptId="attempt-0" initialCardId="card-0" random={() => 0} />);
+    expect(screen.queryByText("Answered correctly 3 times in a row. Now learned!")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Reveal English Back" }));
+    await userEvent.click(screen.getByRole("button", { name: "Correct" }));
+
+    const toast = screen.getByRole("status");
+    expect(within(toast).getByText("Flashcard learned: null")).toBeTruthy();
+    expect(within(toast).getByText("Answered correctly 3 times in a row. Now learned!")).toBeTruthy();
+    expect(screen.getByText("én")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reveal English Back" })).toBeTruthy();
+    expect(toast.contains(document.activeElement)).toBe(false);
+  });
+
   it("updates Deck Progress only after a saved result and keeps studying at 100%", async () => {
     let resolveSave!: (value: { flashcardId: string; recallStreak: number }) => void;
     const action = vi.fn<(data: FormData) => Promise<{ flashcardId: string; recallStreak: number }>>()

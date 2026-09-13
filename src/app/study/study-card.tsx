@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { calculateLearningProgress } from "@/application/learning-progress";
 import type { Flashcard } from "@/application/flashcards";
@@ -144,6 +144,12 @@ export function StudySession({
   const [currentCardId, setCurrentCardId] = useState(initialCardId);
   const [attemptId, setAttemptId] = useState(initialAttemptId);
   const [error, setError] = useState<string>();
+  const [learnedCard, setLearnedCard] = useState<Flashcard>();
+  useEffect(() => {
+    if (!learnedCard) return;
+    const timeout = setTimeout(() => setLearnedCard(undefined), 6000);
+    return () => clearTimeout(timeout);
+  }, [learnedCard]);
   const flashcard = cards.find(({ id }) => id === currentCardId);
 
   if (!flashcard) {
@@ -174,6 +180,10 @@ export function StudySession({
         : card,
     );
 
+    if (flashcard.recallStreak === 2 && recorded.recallStreak === 3) {
+      setLearnedCard(flashcard);
+    }
+
     scheduler.current.recordResult(recorded.flashcardId, assessment);
     const next = scheduler.current.next(updatedCards, recorded.flashcardId);
 
@@ -188,13 +198,33 @@ export function StudySession({
         {calculateLearningProgress(cards).percentage}% Learned
       </p>
       {children}
-      <StudyCard
-        action={recordAndAdvance}
-        attemptId={attemptId}
-        error={error}
-        flashcard={flashcard}
-        key={attemptId}
-      />
+      <div role="status" aria-atomic="true">
+        {learnedCard ? (
+          <div className="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-md items-start gap-2 rounded-xl border border-emerald-200 bg-white p-4 text-sm text-emerald-800 shadow-lg">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">Flashcard learned: {learnedCard.front}</p>
+              <p className="mt-1">Answered correctly 3 times in a row. Now learned!</p>
+            </div>
+            <button
+              aria-label="Dismiss learned flashcard notification"
+              className="min-h-11 min-w-11 shrink-0 rounded-lg text-xl hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-700"
+              onClick={() => setLearnedCard(undefined)}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+      </div>
+      <div className={learnedCard ? "pb-40" : undefined}>
+        <StudyCard
+          action={recordAndAdvance}
+          attemptId={attemptId}
+          error={error}
+          flashcard={flashcard}
+          key={attemptId}
+        />
+      </div>
     </>
   );
 }

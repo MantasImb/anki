@@ -1,6 +1,6 @@
 # Plan: Announce learned milestones
 
-Status: Part 2 (Quizzes) implemented and verified. Part 1 (Flashcards) not started.
+Status: Both parts implemented and verified.
 
 ## Shared behavior
 
@@ -16,12 +16,21 @@ Show a toast after the third consecutive correct self-assessment is successfully
 
 Acceptance criteria:
 
-- [ ] The saved two-to-three transition shows a toast while the next card appears.
-- [ ] The toast communicates that the previous flashcard is now Learned.
-- [ ] Pending and failed saves do not show a milestone; retrying a successful attempt does not duplicate the notification.
-- [ ] Existing Learned cards do not trigger the toast merely by appearing or receiving another correct result.
-- [ ] The toast is announced accessibly without moving focus or obstructing study controls.
-- [ ] Verify the visible transition, non-milestone cases, and save failure/retry behavior, plus phone and desktop presentation.
+- [x] The saved two-to-three transition shows a toast while the next card appears.
+- [x] The toast communicates that the previous flashcard is now Learned.
+- [x] Pending and failed saves do not show a milestone; retrying a successful attempt does not duplicate the notification.
+- [x] Existing Learned cards do not trigger the toast merely by appearing or receiving another correct result.
+- [x] The toast is announced accessibly without moving focus or obstructing study controls.
+- [x] Verify the visible transition, non-milestone cases, and save failure/retry behavior, plus phone and desktop presentation.
+
+Verification:
+
+- `src/app/study/study-card.test.tsx`: 16 component tests passed, including milestone identification and automatic advancement, six-second expiry, manual dismissal, non-milestone results, pending/failed saves and retry, and learning again after a streak reset. Milestone, expiry, and dismissal tests each failed before their implementation.
+- `bun run test`: 352 tests passed across 62 files.
+- `bun run lint` and `bun run build`: passed.
+- Chromium preview of the actual component with simulated saves and production CSS: checked at 320 × 568, 390 × 844, and 1280 × 900. Toast dismissal works, there is no horizontal overflow, and study controls remain reachable above the toast when scrolled into view. No live flashcard data was changed.
+- The toast identifies the learned card by its Norwegian Front, expires after six seconds, and offers a dismiss button. Its live region is mounted before the announcement and does not receive focus.
+- `cr review --agent`: completed with one minor test-fixture suggestion, rejected after inspection. Tests that submit repeatedly use only card-0; the two-card tests submit card-0 once and only reveal card-1. The dismissal test correctly checks the capped streak of three after learning, so using a higher streak would violate the domain rule. No review-driven changes were needed.
 
 ## Part 2: Quizzes
 
